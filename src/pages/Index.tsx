@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ArrowRight, RotateCcw } from 'lucide-react';
 import MBTIGrid from '@/components/MBTIGrid';
 import RoutineInput from '@/components/RoutineInput';
+import AnalysisAnimation from '@/components/AnalysisAnimation';
 import ResultDashboard from '@/components/ResultDashboard';
+import ShareCards from '@/components/ShareCards';
 import { analyzeRoutines } from '@/lib/analysis-engine';
 import type { RoutineEntry, AnalysisResult } from '@/lib/types';
 
@@ -15,30 +17,38 @@ const SAMPLE_ROUTINES: RoutineEntry[] = [
   { time: '17:00', activity: '유튜브 시청', duration: 60 },
 ];
 
+type Step = 'input' | 'analyzing' | 'result';
+
 export default function Index() {
-  const [step, setStep] = useState<'input' | 'result'>('input');
+  const [step, setStep] = useState<Step>('input');
   const [mbti, setMbti] = useState('');
   const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [showShare, setShowShare] = useState(false);
 
   const canAnalyze = mbti && routines.length > 0 && routines.every(r => r.activity.trim());
 
   const handleAnalyze = () => {
+    setStep('analyzing');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAnalysisComplete = useCallback(() => {
     const res = analyzeRoutines(routines, mbti);
     setResult(res);
     setStep('result');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [routines, mbti]);
 
   const handleReset = () => {
     setStep('input');
     setResult(null);
+    setShowShare(false);
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border/50">
         <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-base font-semibold text-foreground tracking-tight">AI Life Shift</h1>
@@ -57,7 +67,7 @@ export default function Index() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 py-8">
-        {step === 'input' ? (
+        {step === 'input' && (
           <div className="space-y-10">
             {/* Hero */}
             <div className="text-center space-y-3 pt-4">
@@ -65,7 +75,7 @@ export default function Index() {
                 어제의 일상을 입력하세요
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
-                시간대별 활동을 기록하면, AI가 당신의 삶에 미치는 영향을 정밀 분석합니다.
+                시간대별 활동을 기록하면, AI가 당신의 삶을 얼마나 대체할 수 있는지 진단합니다.
               </p>
             </div>
 
@@ -96,10 +106,21 @@ export default function Index() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-        ) : result ? (
-          <ResultDashboard result={result} mbti={mbti} />
-        ) : null}
+        )}
+
+        {step === 'analyzing' && (
+          <AnalysisAnimation onComplete={handleAnalysisComplete} />
+        )}
+
+        {step === 'result' && result && (
+          <ResultDashboard result={result} mbti={mbti} onShowShare={() => setShowShare(true)} />
+        )}
       </main>
+
+      {/* Share Modal */}
+      {showShare && result && (
+        <ShareCards result={result} mbti={mbti} onClose={() => setShowShare(false)} />
+      )}
     </div>
   );
 }
