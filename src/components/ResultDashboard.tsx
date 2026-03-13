@@ -472,6 +472,9 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         결과 공유하기
       </button>
 
+      {/* Community Ranking */}
+      <CommunityRanking activities={result.activities} />
+
       {/* Email Signup */}
       <EmailSignup mbti={mbti} shiftIndex={result.shiftIndex} />
     </div>
