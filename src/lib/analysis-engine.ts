@@ -258,8 +258,12 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const totalHr = activities.reduce((sum, activity) => sum + activity.original_duration_hr, 0);
   const safeTotalHr = totalHr || 1;
   const round2 = (value: number) => Math.round(value * 100) / 100;
+  const round2Safe = (value: number) => {
+    const rounded = round2(value);
+    return Math.abs(rounded) < 0.005 ? 0 : rounded;
+  };
 
-  // replacement_level 색상 기준으로만 실제 시간 합산
+  // replacement_level(=테이블 배지 색상) 기준으로만 실제 시간 합산
   const durationByLevel: Record<ReplacementLevel, number> = {
     critical: 0,
     high: 0,
@@ -274,12 +278,12 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   });
 
   const timeReport: TimeReport = {
-    totalHr: round2(totalHr),
-    gainHr: round2(durationByLevel.assist),
-    erosionHr: round2(durationByLevel.critical + durationByLevel.high),
-    augmentHr: round2(durationByLevel.low),
-    mixedHr: round2(durationByLevel.medium),
-    humanHr: round2(durationByLevel.human),
+    totalHr: round2Safe(totalHr),
+    gainHr: round2Safe(durationByLevel.assist),
+    erosionHr: round2Safe(durationByLevel.critical + durationByLevel.high),
+    augmentHr: round2Safe(durationByLevel.low),
+    mixedHr: round2Safe(durationByLevel.medium),
+    humanHr: round2Safe(durationByLevel.human),
   };
 
   // Shift index
@@ -294,11 +298,11 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const humanPercent = totalHr > 0 ? Math.round((timeReport.humanHr / safeTotalHr) * 100) : 0;
 
-  // Economic value: 잠식(erosion)은 제외, 실제 절약 시간만 반영
-  const productiveSavedHr = activities
-    .filter((activity) => activity.ai_involvement === 'active')
+  // Economic value: 파랑/초록(assist/low)으로 실제 절약된 시간만 가치로 인정
+  const valueSavedHr = activities
+    .filter((activity) => activity.ai_involvement === 'active' && (activity.replacement_level === 'assist' || activity.replacement_level === 'low'))
     .reduce((sum, activity) => sum + activity.saved_time_hr, 0);
-  const economicDaily = Math.round(productiveSavedHr * HOURLY_VALUE);
+  const economicDaily = Math.round(valueSavedHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
 
@@ -318,7 +322,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 건강한 밸런스입니다. AI와 공존하는 멋진 라이프스타일이에요!`;
   }
 
-  const oneLiner = `나는 오늘 AI 덕분에 ${Math.round(productiveSavedHr)}시간을 벌었고, 알고리즘에 ${Math.round(timeReport.erosionHr)}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
+  const oneLiner = `나는 오늘 AI 덕분에 ${Math.round(valueSavedHr)}시간을 벌었고, 알고리즘에 ${Math.round(timeReport.erosionHr)}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
 
   return {
     shiftIndex,
