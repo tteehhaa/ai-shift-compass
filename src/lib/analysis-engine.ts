@@ -24,19 +24,40 @@ const REPLACEMENT_BASE: Record<ActivityCategory, number> = {
 
 const HOURLY_VALUE = 10030; // 2025 최저시급
 
-function classifyActivity(text: string): { category: ActivityCategory; involvement: AIInvolvement; isHighCognitive: boolean } {
+// ── 1) 인간 고유 영역 (보라 / 대체율 0-10%) ──
+const HUMAN_ONLY_KEYWORDS = /식사|밥|산책|운동|요가|수면|잠|목욕|샤워|대화|농구|축구|육아|명상|휴식|낮잠|스트레칭|조깅|등산|자전거|필라테스|헬스|수영|독서|일기|저녁|아침|점심|간식|커피|차|티타임|친구|가족|놀이/;
+
+// ── 2) AI 잠식/위험 (빨강·주황 / 위험도 80-100%) ──
+const AI_EROSION_KEYWORDS = /유튜브|쇼츠|숏폼|인스타그램|인스타|틱톡|넷플릭스|웹서핑|sns|스크롤|트위터|페이스북|레딧|웹툰|게임|릴스|핀터레스트|쿠팡|쇼핑|알고리즘/;
+
+// ── 3) AI 증강/획득 (파랑·초록 / 대체율 50-90%) ──
+const AI_AUGMENT_KEYWORDS = /보고서|코딩|개발|이메일|메일|리서치|자료\s?정리|번역|기획안|작성|ppt|엑셀|문서|회의록|발표|정리|데이터|분석|프로그래밍|설계|디자인|검색|공부|학습|강의|논문|조사|전략|컨셉|브레인스토밍|아이디어|창작|글쓰기/;
+
+function classifyActivity(text: string): { category: ActivityCategory; involvement: AIInvolvement; isHighCognitive: boolean; forcedReplacementScore?: number } {
   const t = text.toLowerCase();
-  if (/공부|학습|강의|책|리서치|검색|뉴스|논문|읽|조사/.test(t))
-    return { category: '정보학습', involvement: 'active', isHighCognitive: true };
-  if (/보고서|이메일|문서|작성|발표|ppt|엑셀|회의록|정리|메일/.test(t))
+
+  // Priority 1: 인간 고유 — involvement=none, 대체율 5%
+  if (HUMAN_ONLY_KEYWORDS.test(t))
+    return { category: '일상', involvement: 'none', isHighCognitive: false, forcedReplacementScore: 5 };
+
+  // Priority 2: AI 잠식 — involvement=passive, stolen_time (대체율 90%)
+  if (AI_EROSION_KEYWORDS.test(t))
+    return { category: '일상', involvement: 'passive', isHighCognitive: false, forcedReplacementScore: 90 };
+
+  // Priority 3: AI 증강/획득 — involvement=active
+  if (AI_AUGMENT_KEYWORDS.test(t)) {
+    // Sub-classify
+    if (/코딩|개발|프로그래밍|설계|디자인|분석|데이터/.test(t))
+      return { category: '전문기술', involvement: 'active', isHighCognitive: true };
+    if (/기획|아이디어|브레인스토밍|전략|컨셉|창작|글쓰기/.test(t))
+      return { category: '창의기획', involvement: 'active', isHighCognitive: true };
+    if (/공부|학습|강의|논문|조사|리서치|검색/.test(t))
+      return { category: '정보학습', involvement: 'active', isHighCognitive: true };
     return { category: '문서사무', involvement: 'active', isHighCognitive: false };
-  if (/코딩|개발|디자인|분석|데이터|프로그래밍|설계/.test(t))
-    return { category: '전문기술', involvement: 'active', isHighCognitive: true };
-  if (/기획|아이디어|브레인스토밍|전략|컨셉|창작|글쓰기/.test(t))
-    return { category: '창의기획', involvement: 'active', isHighCognitive: true };
-  if (/sns|유튜브|넷플릭스|틱톡|인스타|스크롤|숏폼/.test(t))
-    return { category: '일상', involvement: 'passive', isHighCognitive: false };
-  return { category: '일상', involvement: 'none', isHighCognitive: false };
+  }
+
+  // Fallback: 인간 고유
+  return { category: '일상', involvement: 'none', isHighCognitive: false, forcedReplacementScore: 5 };
 }
 
 function getReplacementLevel(score: number): ReplacementLevel {
@@ -82,19 +103,33 @@ function getPersonaInfo(mbti: string, activeRatio?: number) {
 
 export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
   const activities: AnalyzedActivity[] = routines.map((r) => {
-    const { category, involvement, isHighCognitive } = classifyActivity(r.activity);
+    const { category, involvement, isHighCognitive, forcedReplacementScore } = classifyActivity(r.activity);
     const C = COMPRESSION_RATES[category];
     const A = AGENCY_RATES[involvement];
-    const E = involvement === 'none' ? 0 : 1;
 
-    const savedTime = Math.min(r.duration * (1 - 1 / C) * E, r.duration * 0.9);
+    let savedTime: number;
+    if (involvement === 'passive') {
+      // AI 잠식: stolen_time — 전체 시간이 빼앗긴 시간
+      savedTime = 0; // 획득 없음, 잠식만 있음
+    } else if (involvement === 'none') {
+      // 인간 고유: AI 개입 없음
+      savedTime = 0;
+    } else {
+      // AI 증강/획득: 압축으로 절약
+      savedTime = Math.min(r.duration * (1 - 1 / C), r.duration * 0.9);
+    }
     const agencyAdjusted = savedTime * A;
 
-    let repScore = REPLACEMENT_BASE[category];
-    if (involvement === 'active') repScore += 10;
-    if (involvement === 'passive') repScore -= 5;
-    if (isHighCognitive) repScore -= 10;
-    repScore = Math.max(0, Math.min(100, repScore));
+    let repScore: number;
+    if (forcedReplacementScore !== undefined) {
+      repScore = forcedReplacementScore;
+    } else {
+      repScore = REPLACEMENT_BASE[category];
+      if (involvement === 'active') repScore += 10;
+      if (involvement === 'passive') repScore -= 5;
+      if (isHighCognitive) repScore -= 10;
+      repScore = Math.max(0, Math.min(100, repScore));
+    }
 
     return {
       activity: r.activity,
@@ -104,8 +139,8 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
       category,
       is_high_cognitive: isHighCognitive,
       compression_ratio: C,
-      saved_time_hr: Math.round(savedTime * 10) / 10,
-      agency_adjusted_hr: Math.round(agencyAdjusted * 10) / 10,
+      saved_time_hr: Math.round(savedTime),
+      agency_adjusted_hr: Math.round(agencyAdjusted),
       replacement_score: repScore,
       replacement_level: getReplacementLevel(repScore),
     };
@@ -113,22 +148,34 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const totalHr = activities.reduce((s, a) => s + a.original_duration_hr, 0) || 1;
 
-  // 5-category time report
-  const gainHr = Math.round(activities
-    .filter(a => a.ai_involvement === 'active' && (a.replacement_level === 'critical' || a.replacement_level === 'high'))
-    .reduce((s, a) => s + a.saved_time_hr, 0));
-  const erosionHr = Math.round(activities
+  // 5-category time report — strictly from actual activity data sums
+  // 잠식 시간: passive(유튜브, SNS 등) 활동의 전체 시간
+  const erosionHr = activities
     .filter(a => a.ai_involvement === 'passive')
-    .reduce((s, a) => s + a.original_duration_hr, 0));
-  const augmentHr = Math.round(activities
-    .filter(a => a.ai_involvement === 'active' && (a.replacement_level === 'medium' || a.replacement_level === 'low'))
-    .reduce((s, a) => s + a.agency_adjusted_hr, 0));
-  const humanHr = Math.round(activities
-    .filter(a => a.replacement_level === 'human' || a.ai_involvement === 'none')
-    .reduce((s, a) => s + a.original_duration_hr, 0));
-  const mixedHr = Math.max(0, Math.round(totalHr - gainHr - erosionHr - augmentHr - humanHr));
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  // 인간 고유 시간: involvement=none 활동의 전체 시간
+  const humanHr = activities
+    .filter(a => a.ai_involvement === 'none')
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  // 획득 시간: active 활동에서 AI로 절약된 시간
+  const gainHr = activities
+    .filter(a => a.ai_involvement === 'active')
+    .reduce((s, a) => s + a.saved_time_hr, 0);
+  // 증강 시간: active 활동에서 AI와 협업한 실제 작업 시간 (원래 시간 - 절약 시간)
+  const augmentHr = activities
+    .filter(a => a.ai_involvement === 'active')
+    .reduce((s, a) => s + (a.original_duration_hr - a.saved_time_hr), 0);
+  // 혼재 시간: 나머지 (보정값, 0 이상만)
+  const mixedHr = Math.max(0, Math.round(totalHr - erosionHr - humanHr - gainHr - augmentHr));
 
-  const timeReport: TimeReport = { totalHr, gainHr, erosionHr, augmentHr, mixedHr, humanHr };
+  const timeReport: TimeReport = {
+    totalHr: Math.round(totalHr),
+    gainHr: Math.round(gainHr),
+    erosionHr: Math.round(erosionHr),
+    augmentHr: Math.round(augmentHr),
+    mixedHr,
+    humanHr: Math.round(humanHr),
+  };
 
   const sumSavedQ = activities.reduce((s, a) => {
     const Q = a.is_high_cognitive ? 1.2 : 1.0;
@@ -137,13 +184,13 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const sumPassive = activities.filter(a => a.ai_involvement === 'passive').reduce((s, a) => s + a.original_duration_hr, 0);
   const shiftIndex = Math.min(Math.round(((sumSavedQ + sumPassive) / totalHr) * 100), 100);
 
-  const humanPercent = Math.round((humanHr / totalHr) * 100);
+  const humanPercent = Math.round((timeReport.humanHr / totalHr) * 100);
 
   // Economic value: (획득 + 증강 + 대체위험 시간) × 10,030원
-  const criticalHr = Math.round(activities
+  const criticalHr = activities
     .filter(a => a.replacement_level === 'critical' || a.replacement_level === 'high')
-    .reduce((s, a) => s + a.original_duration_hr, 0));
-  const totalAutomatableHr = gainHr + augmentHr + criticalHr;
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  const totalAutomatableHr = timeReport.gainHr + timeReport.augmentHr + Math.round(criticalHr);
   const economicDaily = Math.round(totalAutomatableHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
@@ -164,7 +211,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 건강한 밸런스입니다. AI와 공존하는 멋진 라이프스타일이에요!`;
   }
 
-  const oneLiner = `나는 오늘 AI 덕분에 ${gainHr}시간을 벌었고, 알고리즘에 ${erosionHr}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
+  const oneLiner = `나는 오늘 AI 덕분에 ${timeReport.gainHr}시간을 벌었고, 알고리즘에 ${timeReport.erosionHr}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
 
   return {
     shiftIndex,
