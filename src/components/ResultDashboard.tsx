@@ -317,11 +317,12 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             />
           </div>
           {mcdonalds > 0 && (
-            <div className="flex items-center gap-1.5 justify-end mb-4">
-              <span className="text-lg">🍟</span>
-              <span className="text-xs text-muted-foreground">맥도날드 지수 {mcdonalds}세트</span>
+            <div className="flex items-center gap-1.5 justify-end mb-1">
+              <span className="text-lg">🍔</span>
+              <span className="text-xs text-muted-foreground">맥도날드 빅맥 {mcdonalds}세트</span>
             </div>
           )}
+          <p className="text-[10px] text-muted-foreground/50 text-right">* 서울 기준 빅맥 세트 5,500원 기준</p>
 
           {/* Annual — HERO */}
           <div
