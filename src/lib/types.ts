@@ -3,12 +3,12 @@ export type MBTIType = string;
 export type AIInvolvement = 'active' | 'passive' | 'none';
 export type ActivityCategory = '정보학습' | '문서사무' | '전문기술' | '창의기획' | '일상';
 
-export type ReplacementLevel = 'critical' | 'high' | 'medium' | 'low' | 'safe';
+export type ReplacementLevel = 'critical' | 'high' | 'medium' | 'low' | 'assist' | 'human';
 
 export interface RoutineEntry {
   time: string;
   activity: string;
-  duration: number; // in hours
+  duration: number;
 }
 
 export interface AnalyzedActivity {
@@ -21,17 +21,17 @@ export interface AnalyzedActivity {
   compression_ratio: number;
   saved_time_hr: number;
   agency_adjusted_hr: number;
-  replacement_score: number; // 0-100
+  replacement_score: number;
   replacement_level: ReplacementLevel;
 }
 
 export interface TimeReport {
-  totalHr: number;        // 총 입력 시간
-  gainHr: number;         // 획득 시간 (Blue)
-  erosionHr: number;      // 잠식 시간 (Red)
-  augmentHr: number;      // 증강 시간 (Green)
-  mixedHr: number;        // 혼재 시간 (Yellow)
-  humanHr: number;        // 고유 시간 (Purple)
+  totalHr: number;
+  gainHr: number;
+  erosionHr: number;
+  augmentHr: number;
+  mixedHr: number;
+  humanHr: number;
 }
 
 export interface AnalysisResult {

@@ -14,6 +14,39 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
 
+  // Grouped time report items
+  const timeGroups = [
+    {
+      label: '위험 · 잠식',
+      items: [
+        { key: 'erosion' as const, hr: result.timeReport.erosionHr },
+      ],
+      color: TIME_CATEGORY_COLORS.erosion,
+    },
+    {
+      label: '혼재',
+      items: [
+        { key: 'mixed' as const, hr: result.timeReport.mixedHr },
+      ],
+      color: TIME_CATEGORY_COLORS.mixed,
+    },
+    {
+      label: '증강 · 획득',
+      items: [
+        { key: 'gain' as const, hr: result.timeReport.gainHr },
+        { key: 'augment' as const, hr: result.timeReport.augmentHr },
+      ],
+      color: TIME_CATEGORY_COLORS.gain,
+    },
+    {
+      label: '인간 고유',
+      items: [
+        { key: 'human' as const, hr: result.timeReport.humanHr },
+      ],
+      color: TIME_CATEGORY_COLORS.human,
+    },
+  ];
+
   return (
     <div className="space-y-8 pb-10">
       {/* Data Source Citation */}
@@ -38,7 +71,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </p>
       </div>
 
-      {/* AI Replacement Spectrum — input order preserved */}
+      {/* AI Replacement Spectrum */}
       <div>
         <h3 className="text-base font-semibold text-foreground mb-4">AI 대체 가능성 분석</h3>
         <div className="glass-card rounded-2xl overflow-hidden">
@@ -80,7 +113,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* Color Legend with descriptions */}
+      {/* Color Legend */}
       <div>
         <button
           onClick={() => setShowLegendDetail(!showLegendDetail)}
@@ -114,7 +147,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         )}
       </div>
 
-      {/* 5-Category Time Report */}
+      {/* 5-Category Time Report — grouped */}
       <div className="glass-card rounded-3xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -135,9 +168,9 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <p className="text-[11px] text-muted-foreground mt-1">총 입력 시간</p>
         </div>
 
-        {/* Rainbow bar */}
+        {/* Rainbow bar — same colors as replacement spectrum */}
         <div className="flex rounded-full overflow-hidden h-4 mb-4">
-          {(['gain', 'erosion', 'augment', 'mixed', 'human'] as const).map((key) => {
+          {(['erosion', 'mixed', 'augment', 'gain', 'human'] as const).map((key) => {
             const val = result.timeReport[`${key}Hr` as keyof typeof result.timeReport] as number;
             if (val <= 0) return null;
             return (
@@ -153,23 +186,32 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           })}
         </div>
 
-        {/* 5 categories */}
-        <div className="grid grid-cols-2 gap-3">
-          {([
-            { key: 'gain', hr: result.timeReport.gainHr },
-            { key: 'erosion', hr: result.timeReport.erosionHr },
-            { key: 'augment', hr: result.timeReport.augmentHr },
-            { key: 'mixed', hr: result.timeReport.mixedHr },
-            { key: 'human', hr: result.timeReport.humanHr },
-          ] as const).map(({ key, hr }) => (
-            <div key={key} className="text-center p-3 rounded-2xl bg-secondary/50">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: TIME_CATEGORY_COLORS[key] }} />
-                <p className="text-[11px] text-muted-foreground">{TIME_CATEGORY_LABELS[key]}</p>
+        {/* Grouped categories */}
+        <div className="space-y-3">
+          {timeGroups.map((group) => {
+            const groupTotal = group.items.reduce((s, i) => s + i.hr, 0);
+            if (groupTotal <= 0) return null;
+            return (
+              <div key={group.label} className="p-3 rounded-2xl bg-secondary/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                    <span className="text-xs font-semibold text-foreground">{group.label}</span>
+                  </div>
+                  <span className="text-lg font-bold" style={{ color: group.color }}>{groupTotal}시간</span>
+                </div>
+                {group.items.length > 1 && (
+                  <div className="flex gap-4 mt-1.5 ml-5">
+                    {group.items.map(({ key, hr }) => (
+                      <span key={key} className="text-[11px] text-muted-foreground">
+                        {TIME_CATEGORY_LABELS[key]} {hr}시간
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <p className="text-2xl font-bold" style={{ color: TIME_CATEGORY_COLORS[key] }}>{hr}시간</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Time legend detail */}
@@ -194,10 +236,11 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <DollarSign className="w-4 h-4" />
           경제적 가치
         </h3>
-        <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">
-          AI 시프트를 통해 당신이 매일 새롭게 창출할 수 있는 잠재적 최소 시간 가치입니다.
-          <br />
-          <span className="text-[10px]">(AI 자동화로 추가 확보 가능한 총 시간 × 10,030원 · 2025년 최저시급)</span>
+        <p className="text-[11px] text-muted-foreground mb-1 leading-relaxed">
+          (획득 시간 + 증강 시간 + 대체 위험 시간) × 10,030원(2025년 최저시급)
+        </p>
+        <p className="text-[10px] text-muted-foreground/70 mb-4 leading-relaxed">
+          ⚡ <strong>대체 위험 시간을 획득 시간으로 전환</strong>할 때의 잠재적 최소 가치입니다.
         </p>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
@@ -244,7 +287,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </p>
       </div>
 
-      {/* MBTI Persona — fun section at bottom */}
+      {/* MBTI Persona */}
       <div className="glass-card rounded-3xl p-6">
         <div className="text-center mb-4">
           <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">나의 AI 페르소나</p>
