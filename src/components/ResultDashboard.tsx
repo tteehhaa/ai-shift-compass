@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import type { AnalysisResult } from '@/lib/types';
-import { REPLACEMENT_COLORS, REPLACEMENT_LABELS } from '@/lib/analysis-engine';
+import { REPLACEMENT_COLORS, REPLACEMENT_LABELS, REPLACEMENT_DESCRIPTIONS, TIME_CATEGORY_COLORS, TIME_CATEGORY_LABELS, TIME_CATEGORY_DESCRIPTIONS } from '@/lib/analysis-engine';
 import { cn } from '@/lib/utils';
-import { TrendingUp, Clock, DollarSign, Heart, Zap, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Clock, DollarSign, Heart, Zap, AlertTriangle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ResultDashboardProps {
   result: AnalysisResult;
@@ -10,8 +11,20 @@ interface ResultDashboardProps {
 }
 
 export default function ResultDashboard({ result, mbti, onShowShare }: ResultDashboardProps) {
+  const [showLegendDetail, setShowLegendDetail] = useState(false);
+  const [showTimeLegend, setShowTimeLegend] = useState(false);
+
   return (
     <div className="space-y-8 pb-10">
+      {/* Data Source Citation */}
+      <div className="flex items-start gap-2 p-3 rounded-xl bg-secondary/50 border border-border/30">
+        <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          본 지수는 <strong>Anthropic의 AEI(AI Economic Index)</strong>와 <strong>OECD 비인지 역량 지표</strong>, 
+          그리고 <strong>Dario Amodei의 10x 가속 영역 연구</strong>를 기반으로 산출되었습니다.
+        </p>
+      </div>
+
       {/* Hero: Shift Index */}
       <div className="glass-card rounded-3xl p-8 text-center">
         <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-4">
@@ -25,7 +38,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </p>
       </div>
 
-      {/* AI Replacement Spectrum */}
+      {/* AI Replacement Spectrum — input order preserved */}
       <div>
         <h3 className="text-base font-semibold text-foreground mb-4">AI 대체 가능성 분석</h3>
         <div className="glass-card rounded-2xl overflow-hidden">
@@ -40,21 +53,16 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                   i !== result.activities.length - 1 && 'border-b border-border/30'
                 )}
               >
-                {/* Color bar indicator */}
                 <div
                   className="w-1.5 h-10 rounded-full shrink-0"
                   style={{ backgroundColor: color }}
                 />
-
-                {/* Activity info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{act.activity}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {act.category} · {act.original_duration_min}분
+                    {act.category} · {act.original_duration_hr}시간
                   </p>
                 </div>
-
-                {/* Replacement score */}
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <p className="text-sm font-bold" style={{ color }}>{act.replacement_score}%</p>
@@ -72,51 +80,128 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* Color Legend */}
-      <div className="flex flex-wrap gap-3 justify-center">
-        {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-            <span className="text-[11px] text-muted-foreground">{REPLACEMENT_LABELS[key]}</span>
+      {/* Color Legend with descriptions */}
+      <div>
+        <button
+          onClick={() => setShowLegendDetail(!showLegendDetail)}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+        >
+          <Info className="w-4 h-4" />
+          <span>범례 상세 설명</span>
+          {showLegendDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+        {showLegendDetail ? (
+          <div className="glass-card rounded-2xl p-4 space-y-3">
+            {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
+              <div key={key} className="flex items-start gap-3">
+                <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color }} />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">{REPLACEMENT_LABELS[key]}</p>
+                  <p className="text-[11px] text-muted-foreground">{REPLACEMENT_DESCRIPTIONS[key]}</p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="flex flex-wrap gap-3 justify-center">
+            {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-[11px] text-muted-foreground">{REPLACEMENT_LABELS[key]}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Time Summary */}
+      {/* 5-Category Time Report */}
       <div className="glass-card rounded-3xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          시간 리포트
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-3 rounded-2xl bg-secondary/50">
-            <p className="text-2xl font-bold text-diagnostic-gain">{result.totalGainMin}분</p>
-            <p className="text-[11px] text-muted-foreground mt-1">획득 시간</p>
-          </div>
-          <div className="text-center p-3 rounded-2xl bg-secondary/50">
-            <p className="text-2xl font-bold text-diagnostic-erosion">{result.totalErosionMin}분</p>
-            <p className="text-[11px] text-muted-foreground mt-1">잠식 시간</p>
-          </div>
-          <div className="text-center p-3 rounded-2xl bg-secondary/50">
-            <p className="text-2xl font-bold text-foreground">{result.totalOriginalMin}분</p>
-            <p className="text-[11px] text-muted-foreground mt-1">총 분석 시간</p>
-          </div>
-          <div className="text-center p-3 rounded-2xl bg-secondary/50">
-            <p className="text-2xl font-bold text-diagnostic-human">{result.humanTimeMin}분</p>
-            <p className="text-[11px] text-muted-foreground mt-1">인간 고유 시간</p>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            시간 리포트
+          </h3>
+          <button
+            onClick={() => setShowTimeLegend(!showTimeLegend)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
+
+        {/* Total */}
+        <div className="text-center p-3 rounded-2xl bg-secondary/50 mb-4">
+          <p className="text-3xl font-bold text-foreground">{result.timeReport.totalHr}시간</p>
+          <p className="text-[11px] text-muted-foreground mt-1">총 입력 시간</p>
+        </div>
+
+        {/* Rainbow bar */}
+        <div className="flex rounded-full overflow-hidden h-4 mb-4">
+          {(['gain', 'erosion', 'augment', 'mixed', 'human'] as const).map((key) => {
+            const val = result.timeReport[`${key}Hr` as keyof typeof result.timeReport] as number;
+            if (val <= 0) return null;
+            return (
+              <div
+                key={key}
+                className="h-full transition-all"
+                style={{
+                  backgroundColor: TIME_CATEGORY_COLORS[key],
+                  width: `${(val / result.timeReport.totalHr) * 100}%`,
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* 5 categories */}
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            { key: 'gain', hr: result.timeReport.gainHr },
+            { key: 'erosion', hr: result.timeReport.erosionHr },
+            { key: 'augment', hr: result.timeReport.augmentHr },
+            { key: 'mixed', hr: result.timeReport.mixedHr },
+            { key: 'human', hr: result.timeReport.humanHr },
+          ] as const).map(({ key, hr }) => (
+            <div key={key} className="text-center p-3 rounded-2xl bg-secondary/50">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: TIME_CATEGORY_COLORS[key] }} />
+                <p className="text-[11px] text-muted-foreground">{TIME_CATEGORY_LABELS[key]}</p>
+              </div>
+              <p className="text-2xl font-bold" style={{ color: TIME_CATEGORY_COLORS[key] }}>{hr}시간</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Time legend detail */}
+        {showTimeLegend && (
+          <div className="mt-4 p-4 rounded-xl bg-secondary/30 space-y-2">
+            {Object.entries(TIME_CATEGORY_COLORS).map(([key, color]) => (
+              <div key={key} className="flex items-start gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color }} />
+                <div>
+                  <p className="text-xs font-medium text-foreground">{TIME_CATEGORY_LABELS[key]}</p>
+                  <p className="text-[11px] text-muted-foreground">{TIME_CATEGORY_DESCRIPTIONS[key]}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Economic Value */}
       <div className="glass-card rounded-3xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
           <DollarSign className="w-4 h-4" />
           경제적 가치
         </h3>
+        <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">
+          AI 시프트를 통해 당신이 매일 새롭게 창출할 수 있는 잠재적 최소 시간 가치입니다.
+          <br />
+          <span className="text-[10px]">(AI 자동화로 추가 확보 가능한 총 시간 × 10,030원 · 2025년 최저시급)</span>
+        </p>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">오늘 번 시간의 가치</span>
+            <span className="text-sm text-muted-foreground">일간 가치</span>
             <span className="text-lg font-bold text-foreground">{result.economicValueDaily.toLocaleString()}원</span>
           </div>
           <div className="flex justify-between items-center">
@@ -125,7 +210,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">연간 환산 수익률</span>
-            <span className="text-base font-semibold text-diagnostic-gain">{result.economicValueYearly.toLocaleString()}원</span>
+            <span className="text-base font-semibold" style={{ color: TIME_CATEGORY_COLORS.gain }}>{result.economicValueYearly.toLocaleString()}원</span>
           </div>
         </div>
       </div>
@@ -133,10 +218,10 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       {/* Wellness / Detox */}
       <div className={cn(
         'glass-card rounded-3xl p-6',
-        result.needsDetox && 'border-diagnostic-erosion/30 bg-[hsl(var(--diagnostic-erosion)/0.05)]'
+        result.needsDetox && 'border-destructive/30'
       )}>
         <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          {result.needsDetox ? <AlertTriangle className="w-4 h-4 text-diagnostic-erosion" /> : <Heart className="w-4 h-4 text-diagnostic-human" />}
+          {result.needsDetox ? <AlertTriangle className="w-4 h-4 text-destructive" /> : <Heart className="w-4 h-4" style={{ color: TIME_CATEGORY_COLORS.human }} />}
           웰니스 조언
         </h3>
         <p className="text-sm text-muted-foreground leading-relaxed">{result.wellnessAdvice}</p>
@@ -152,19 +237,19 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
       {/* Ranking */}
       <div className="glass-card rounded-3xl p-6 text-center">
-        <TrendingUp className="w-6 h-6 mx-auto mb-3 text-diagnostic-gain" />
+        <TrendingUp className="w-6 h-6 mx-auto mb-3" style={{ color: TIME_CATEGORY_COLORS.gain }} />
         <p className="text-sm text-muted-foreground">AI 활용 생산성</p>
         <p className="text-2xl font-bold text-foreground mt-1">
-          전체 참여자의 상위 <span className="text-diagnostic-gain">{result.percentileRank}%</span>
+          전체 참여자의 상위 <span style={{ color: TIME_CATEGORY_COLORS.gain }}>{result.percentileRank}%</span>
         </p>
       </div>
 
-      {/* MBTI Persona (fun section at end) */}
+      {/* MBTI Persona — fun section at bottom */}
       <div className="glass-card rounded-3xl p-6">
         <div className="text-center mb-4">
           <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">나의 AI 페르소나</p>
           <div className="text-5xl mb-3">{result.personaEmoji}</div>
-          <p className="text-xs text-muted-foreground">{mbti}</p>
+          <p className="text-xs text-muted-foreground">{mbti === 'UNKNOWN' ? 'MBTI 모름' : mbti}</p>
           <h3 className="text-xl font-bold text-foreground">{result.persona}</h3>
           <p className="text-sm text-muted-foreground mt-1">{result.personaTitle}</p>
         </div>

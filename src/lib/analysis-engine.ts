@@ -1,4 +1,4 @@
-import type { AnalyzedActivity, AnalysisResult, ActivityCategory, AIInvolvement, ReplacementLevel, RoutineEntry } from './types';
+import type { AnalyzedActivity, AnalysisResult, ActivityCategory, AIInvolvement, ReplacementLevel, RoutineEntry, TimeReport } from './types';
 
 const COMPRESSION_RATES: Record<ActivityCategory, number> = {
   '정보학습': 6.0,
@@ -14,7 +14,6 @@ const AGENCY_RATES: Record<string, number> = {
   none: 0.85,
 };
 
-// AI replacement potential by category (base scores)
 const REPLACEMENT_BASE: Record<ActivityCategory, number> = {
   '정보학습': 75,
   '문서사무': 85,
@@ -23,7 +22,7 @@ const REPLACEMENT_BASE: Record<ActivityCategory, number> = {
   '일상': 10,
 };
 
-const HOURLY_VALUE = 19000; // KRW per hour
+const HOURLY_VALUE = 10030; // 2025 최저시급
 
 function classifyActivity(text: string): { category: ActivityCategory; involvement: AIInvolvement; isHighCognitive: boolean } {
   const t = text.toLowerCase();
@@ -67,8 +66,18 @@ const PERSONA_MAP: Record<string, { name: string; emoji: string; title: string; 
   ESFP: { name: 'AI 크리에이터', emoji: '🎬', title: 'AI 시대의 엔터테이너', desc: 'AI를 활용해 매력적인 콘텐츠를 생산하는 유형.', compatible: 'ISTJ', compatiblePersona: 'AI 최적화러' },
 };
 
-function getPersonaInfo(mbti: string) {
-  return PERSONA_MAP[mbti] || PERSONA_MAP['ENTJ'];
+// Unknown MBTI personas based on active/passive ratio
+const UNKNOWN_PERSONAS = [
+  { name: 'AI 탐험가', emoji: '🧭', title: 'AI 시대의 자유인', desc: 'AI를 능동적으로 탐색하며 자신만의 활용법을 개척하는 유형. 호기심과 실험 정신으로 가득합니다.', compatible: 'INTJ', compatiblePersona: 'AI 아키텍트', minActiveRatio: 0.5 },
+  { name: '디지털 노마드', emoji: '🌍', title: 'AI 시대의 유목민', desc: 'AI와 자연스럽게 공존하며 유연하게 적응하는 유형. 변화를 두려워하지 않는 여행자 같은 마인드.', compatible: 'ENFP', compatiblePersona: 'AI 탐험가', minActiveRatio: 0 },
+];
+
+function getPersonaInfo(mbti: string, activeRatio?: number) {
+  if (mbti === 'UNKNOWN') {
+    const ratio = activeRatio ?? 0.5;
+    return ratio >= 0.5 ? UNKNOWN_PERSONAS[0] : UNKNOWN_PERSONAS[1];
+  }
+  return PERSONA_MAP[mbti] || UNKNOWN_PERSONAS[0];
 }
 
 export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
@@ -81,7 +90,6 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     const savedTime = Math.min(r.duration * (1 - 1 / C) * E, r.duration * 0.9); // 90% cap
     const agencyAdjusted = savedTime * A;
 
-    // Replacement score
     let repScore = REPLACEMENT_BASE[category];
     if (involvement === 'active') repScore += 10;
     if (involvement === 'passive') repScore -= 5;
@@ -91,53 +99,70 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     return {
       activity: r.activity,
       time: r.time,
-      original_duration_min: r.duration,
+      original_duration_hr: r.duration,
       ai_involvement: involvement,
       category,
       is_high_cognitive: isHighCognitive,
       compression_ratio: C,
-      saved_time_min: Math.round(savedTime * 10) / 10,
-      agency_adjusted_min: Math.round(agencyAdjusted * 10) / 10,
+      saved_time_hr: Math.round(savedTime * 10) / 10,
+      agency_adjusted_hr: Math.round(agencyAdjusted * 10) / 10,
       replacement_score: repScore,
       replacement_level: getReplacementLevel(repScore),
     };
   });
 
-  const totalDay = activities.reduce((s, a) => s + a.original_duration_min, 0) || 1;
+  const totalHr = activities.reduce((s, a) => s + a.original_duration_hr, 0) || 1;
+
+  // 5-category time report
+  const gainHr = Math.round(activities
+    .filter(a => a.ai_involvement === 'active' && a.replacement_level !== 'safe')
+    .reduce((s, a) => s + a.saved_time_hr, 0));
+  const erosionHr = Math.round(activities
+    .filter(a => a.ai_involvement === 'passive')
+    .reduce((s, a) => s + a.original_duration_hr, 0));
+  const augmentHr = Math.round(activities
+    .filter(a => a.ai_involvement === 'active' && (a.replacement_level === 'medium' || a.replacement_level === 'low'))
+    .reduce((s, a) => s + a.agency_adjusted_hr, 0));
+  const humanHr = Math.round(activities
+    .filter(a => a.ai_involvement === 'none')
+    .reduce((s, a) => s + a.original_duration_hr, 0));
+  const mixedHr = Math.max(0, Math.round(totalHr - gainHr - erosionHr - augmentHr - humanHr));
+
+  const timeReport: TimeReport = { totalHr, gainHr, erosionHr, augmentHr, mixedHr, humanHr };
+
   const sumSavedQ = activities.reduce((s, a) => {
     const Q = a.is_high_cognitive ? 1.2 : 1.0;
-    return s + a.saved_time_min * Q;
+    return s + a.saved_time_hr * Q;
   }, 0);
-  const sumPassive = activities.filter(a => a.ai_involvement === 'passive').reduce((s, a) => s + a.original_duration_min, 0);
-  const shiftIndex = Math.min(Math.round(((sumSavedQ + sumPassive) / totalDay) * 100), 100);
+  const sumPassive = activities.filter(a => a.ai_involvement === 'passive').reduce((s, a) => s + a.original_duration_hr, 0);
+  const shiftIndex = Math.min(Math.round(((sumSavedQ + sumPassive) / totalHr) * 100), 100);
 
-  const humanTime = activities.filter(a => a.ai_involvement === 'none').reduce((s, a) => s + a.original_duration_min, 0);
-  const humanPercent = Math.round((humanTime / totalDay) * 100);
+  const humanPercent = Math.round((humanHr / totalHr) * 100);
 
-  const totalSaved = Math.round(activities.reduce((s, a) => s + a.saved_time_min, 0));
-  const erosionMin = Math.round(activities.filter(a => a.ai_involvement === 'passive').reduce((s, a) => s + a.original_duration_min, 0));
-  const gainMin = Math.round(activities.filter(a => a.replacement_level !== 'safe' && a.replacement_level !== 'low').reduce((s, a) => s + a.saved_time_min, 0));
-
-  const economicDaily = Math.round((totalSaved / 60) * HOURLY_VALUE);
+  // Economic value: total automatable hours × 10,030 KRW
+  const totalAutomatableHr = gainHr + augmentHr;
+  const economicDaily = Math.round(totalAutomatableHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
 
-  // Simulated percentile based on shift index
   const percentile = Math.max(1, Math.min(99, 100 - Math.round(shiftIndex * 0.8 + Math.random() * 10)));
 
-  const persona = getPersonaInfo(mbti);
+  // Active ratio for unknown MBTI
+  const activeCount = activities.filter(a => a.ai_involvement === 'active').length;
+  const activeRatio = activities.length > 0 ? activeCount / activities.length : 0.5;
+  const persona = getPersonaInfo(mbti, activeRatio);
 
   const needsDetox = humanPercent < 20;
   let wellnessAdvice = '';
   if (humanPercent < 15) {
-    wellnessAdvice = `보라색(인간) 구간이 ${humanPercent}%입니다. 조금 더 오프라인의 삶이 필요해요. 디지털 디톡스를 추천합니다.`;
+    wellnessAdvice = `보라색 구간(인간만이 할 수 있는 영역)이 ${humanPercent}%입니다. 조금 더 오프라인의 삶이 필요해요. 디지털 디톡스를 추천합니다.`;
   } else if (humanPercent < 30) {
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%입니다. 적당한 균형을 유지하고 있어요.`;
   } else {
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 건강한 밸런스입니다. AI와 공존하는 멋진 라이프스타일이에요!`;
   }
 
-  const oneLiner = `나는 오늘 AI 덕분에 ${gainMin}분을 벌었고, 알고리즘에 ${erosionMin}분을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
+  const oneLiner = `나는 오늘 AI 덕분에 ${gainHr}시간을 벌었고, 알고리즘에 ${erosionHr}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
 
   return {
     shiftIndex,
@@ -145,12 +170,8 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     personaEmoji: persona.emoji,
     personaDescription: persona.desc,
     personaTitle: persona.title,
-    activities: activities.sort((a, b) => b.replacement_score - a.replacement_score),
-    totalOriginalMin: totalDay,
-    totalSavedMin: totalSaved,
-    totalErosionMin: erosionMin,
-    totalGainMin: gainMin,
-    humanTimeMin: humanTime,
+    activities, // keep input order
+    timeReport,
     humanTimePercent: humanPercent,
     economicValueDaily: economicDaily,
     economicValueMonthly: economicMonthly,
@@ -178,4 +199,36 @@ export const REPLACEMENT_LABELS: Record<string, string> = {
   medium: 'AI 보조 활용',
   low: 'AI 부분 지원',
   safe: '인간 고유 영역',
+};
+
+export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
+  critical: '90% 이상의 과업이 AI로 즉시 대체 가능한 영역.',
+  high: 'AI를 도구로 사용해 업무 속도를 2배 이상 높일 수 있는 영역.',
+  medium: 'AI와 인간의 협업이 필수적인 회색 지대.',
+  low: 'AI의 부분적 보조만 가능하며 인간의 판단이 핵심인 영역.',
+  safe: '정서적 교감, 신체 활동 등 AI가 개입할 수 없는 가치 있는 시간.',
+};
+
+export const TIME_CATEGORY_COLORS: Record<string, string> = {
+  gain: '#3b82f6',
+  erosion: '#ef4444',
+  augment: '#22c55e',
+  mixed: '#eab308',
+  human: '#8b5cf6',
+};
+
+export const TIME_CATEGORY_LABELS: Record<string, string> = {
+  gain: '획득 시간',
+  erosion: '잠식 시간',
+  augment: '증강 시간',
+  mixed: '혼재 시간',
+  human: '고유 시간',
+};
+
+export const TIME_CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  gain: 'AI 활용으로 단축되어 자유롭게 쓸 수 있게 된 시간.',
+  erosion: '알고리즘 노출로 인해 의도치 않게 소모된 시간.',
+  augment: 'AI를 도구로 사용하여 능력치가 높아진 시간.',
+  mixed: 'AI와 인간의 협업이 필수적인 시간.',
+  human: 'AI 개입 0%의 순수한 인간 활동 시간.',
 };

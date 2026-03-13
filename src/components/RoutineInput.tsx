@@ -12,9 +12,11 @@ const TIME_SLOTS = [
   '18:00', '19:00', '20:00', '21:00', '22:00', '23:00',
 ];
 
+const HOUR_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
 export default function RoutineInput({ routines, onChange }: RoutineInputProps) {
   const addRoutine = () => {
-    onChange([...routines, { time: '09:00', activity: '', duration: 60 }]);
+    onChange([...routines, { time: '09:00', activity: '', duration: 1 }]);
   };
 
   const updateRoutine = (index: number, field: keyof RoutineEntry, value: string | number) => {
@@ -42,15 +44,15 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
             </select>
             <div className="flex items-center gap-1 px-1">
               <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-              <input
-                type="number"
-                min={5}
-                max={480}
+              <select
                 value={routine.duration}
-                onChange={(e) => updateRoutine(i, 'duration', parseInt(e.target.value) || 0)}
-                className="w-12 bg-transparent text-sm text-muted-foreground outline-none"
-              />
-              <span className="text-xs text-muted-foreground">분</span>
+                onChange={(e) => updateRoutine(i, 'duration', parseInt(e.target.value))}
+                className="bg-transparent text-sm text-muted-foreground outline-none cursor-pointer"
+              >
+                {HOUR_OPTIONS.map((h) => (
+                  <option key={h} value={h}>{h}시간</option>
+                ))}
+              </select>
             </div>
           </div>
           <input
