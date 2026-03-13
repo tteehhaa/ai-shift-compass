@@ -8,7 +8,7 @@ import type {
   TimeReport,
 } from "./types";
 
-// 1. 카테고리별 기본 설정 (수치 조정)
+// 1. 카테고리별 설정
 const COMPRESSION_RATES: Record<ActivityCategory, number> = {
   정보학습: 5.0,
   문서사무: 4.0,
@@ -17,15 +17,9 @@ const COMPRESSION_RATES: Record<ActivityCategory, number> = {
   일상: 1.0,
 };
 
-const AGENCY_RATES: Record<string, number> = {
-  active: 1.0,
-  passive: 0.5, // 알고리즘 잠식은 효율이 낮음
-  none: 1.0,
-};
-
 const HOURLY_VALUE = 10030; // 2025 최저시급
 
-// 2. 분류 로직: '인간 고유 활동' 방어 우선
+// 2. 분류 로직: 인간 고유 활동 방어 최우선
 function classifyActivity(text: string): {
   category: ActivityCategory;
   involvement: AIInvolvement;
@@ -33,17 +27,17 @@ function classifyActivity(text: string): {
 } {
   const t = text.toLowerCase();
 
-  // [우선순위 1] 인간 고유 영역 (물리적, 생리적 활동) -> 절대 보라색 방어
+  // [우선순위 1] 인간 고유 영역 -> 보라색 방어
   if (/식사|밥|산책|요가|운동|수면|잠|휴식|목욕|샤워|대화|수다|육아|농구|축구|헬스|명상/.test(t)) {
     return { category: "일상", involvement: "none", isHighCognitive: false };
   }
 
-  // [우선순위 2] AI 잠식 (수동적 미디어 소비) -> 빨강/주황
+  // [우선순위 2] AI 잠식 -> 빨강/주황
   if (/유튜브|sns|인스타|틱톡|쇼츠|릴스|넷플릭스|웹서핑|커뮤니티|웹툰|숏폼/.test(t)) {
     return { category: "일상", involvement: "passive", isHighCognitive: false };
   }
 
-  // [우선순위 3] 생산성 및 전문 업무 -> 파랑/초록
+  // [우선순위 3] 생산성 업무 -> 파랑/초록
   if (/코딩|개발|디자인|분석|데이터|프로그래밍|설계/.test(t))
     return { category: "전문기술", involvement: "active", isHighCognitive: true };
   if (/보고서|이메일|문서|작성|발표|ppt|엑셀|회의록|정리|메일/.test(t))
@@ -56,25 +50,156 @@ function classifyActivity(text: string): {
   return { category: "일상", involvement: "none", isHighCognitive: false };
 }
 
-// 3. 점수 기반 레벨 확정
+// 3. 대체 레벨 확정
 function getReplacementLevel(score: number, involvement: AIInvolvement): ReplacementLevel {
   if (involvement === "none") return "human";
-  if (involvement === "passive") return "high"; // 무조건 잠식으로 분류
+  if (involvement === "passive") return "high";
   if (score >= 85) return "critical";
-  if (score >= 60) return "assist"; // 자동화 성공(파랑) 비중 확대
-  if (score >= 40) return "low"; // 보조 활용(초록)
-  if (score >= 20) return "medium"; // 부분 지원(노랑)
+  if (score >= 60) return "assist";
+  if (score >= 40) return "low";
+  if (score >= 20) return "medium";
   return "human";
 }
+
+// 4. MBTI 페르소나 데이터
+const PERSONA_MAP: Record<string, any> = {
+  INTJ: {
+    name: "AI 아키텍트",
+    emoji: "🏗️",
+    title: "AI 시대의 전략가",
+    desc: "AI 시스템을 설계하고 최적화하는 마스터.",
+    compatible: "ENFP",
+    compatiblePersona: "AI 뮤즈",
+  },
+  INTP: {
+    name: "AI 분석가",
+    emoji: "🔬",
+    title: "AI 시대의 탐구자",
+    desc: "AI의 원리를 깊이 파고드는 연구자.",
+    compatible: "ENTJ",
+    compatiblePersona: "AI 커맨더",
+  },
+  ENTJ: {
+    name: "AI 커맨더",
+    emoji: "⚡",
+    title: "AI 시대의 지휘관",
+    desc: "AI를 전략적 무기로 활용하는 리더.",
+    compatible: "INFP",
+    compatiblePersona: "AI 뮤즈",
+  },
+  ENTP: {
+    name: "AI 이노베이터",
+    emoji: "💡",
+    title: "AI 시대의 혁신가",
+    desc: "AI로 새로운 가능성을 실험하는 선구자.",
+    compatible: "ISFJ",
+    compatiblePersona: "AI 가디언",
+  },
+  INFJ: {
+    name: "AI 비저너리",
+    emoji: "🔮",
+    title: "AI 시대의 예언자",
+    desc: "인간 중심의 기술을 추구하는 이상가.",
+    compatible: "ESTP",
+    compatiblePersona: "AI 해커",
+  },
+  INFP: {
+    name: "AI 뮤즈",
+    emoji: "🎨",
+    title: "AI 시대의 창작자",
+    desc: "AI를 창의적 영감의 도구로 활용하는 창작자.",
+    compatible: "ENTJ",
+    compatiblePersona: "AI 커맨더",
+  },
+  ENFJ: {
+    name: "AI 멘토",
+    emoji: "🌟",
+    title: "AI 시대의 안내자",
+    desc: "AI 활용법을 주변에 전파하는 가이드.",
+    compatible: "ISTP",
+    compatiblePersona: "AI 엔지니어",
+  },
+  ENFP: {
+    name: "AI 탐험가",
+    emoji: "🚀",
+    title: "AI 시대의 모험가",
+    desc: "다양한 AI 도구를 탐색하는 탐험가.",
+    compatible: "INTJ",
+    compatiblePersona: "AI 아키텍트",
+  },
+  ISTJ: {
+    name: "AI 최적화러",
+    emoji: "⚙️",
+    title: "AI 시대의 장인",
+    desc: "AI 효율을 극대화하는 관리 전문가.",
+    compatible: "ESFP",
+    compatiblePersona: "AI 크리에이터",
+  },
+  ISTP: {
+    name: "AI 엔지니어",
+    emoji: "🔧",
+    title: "AI 시대의 기술자",
+    desc: "AI 도구를 실용적으로 튜닝하는 기술자.",
+    compatible: "ENFJ",
+    compatiblePersona: "AI 멘토",
+  },
+  ESTJ: {
+    name: "AI 매니저",
+    emoji: "📊",
+    title: "AI 시대의 관리자",
+    desc: "AI 시스템을 체계적으로 운영하는 관리자.",
+    compatible: "ISFP",
+    compatiblePersona: "AI 아티스트",
+  },
+  ESTP: {
+    name: "AI 해커",
+    emoji: "🎯",
+    title: "AI 시대의 실행가",
+    desc: "빠르게 AI를 실전에 적용하는 행동파.",
+    compatible: "INFJ",
+    compatiblePersona: "AI 비저너리",
+  },
+  ISFJ: {
+    name: "AI 가디언",
+    emoji: "🛡️",
+    title: "AI 시대의 수호자",
+    desc: "안전하고 윤리적인 AI 활용을 지키는 파수꾼.",
+    compatible: "ENTP",
+    compatiblePersona: "AI 이노베이터",
+  },
+  ISFP: {
+    name: "AI 아티스트",
+    emoji: "🎭",
+    title: "AI 시대의 예술가",
+    desc: "AI로 미적 감각을 표현하는 예술가.",
+    compatible: "ESTJ",
+    compatiblePersona: "AI 매니저",
+  },
+  ESFJ: {
+    name: "AI 커넥터",
+    emoji: "🤝",
+    title: "AI 시대의 연결자",
+    desc: "AI를 통해 사람과 사람을 잇는 허브.",
+    compatible: "INTP",
+    compatiblePersona: "AI 분석가",
+  },
+  ESFP: {
+    name: "AI 크리에이터",
+    emoji: "🎬",
+    title: "AI 시대의 엔터테이너",
+    desc: "AI로 즐거운 콘텐츠를 만드는 제작자.",
+    compatible: "ISTJ",
+    compatiblePersona: "AI 최적화러",
+  },
+};
 
 export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
   const activities: AnalyzedActivity[] = routines.map((r) => {
     const { category, involvement, isHighCognitive } = classifyActivity(r.activity);
 
-    // 점수 산출 로직 개편
     let repScore = 0;
     if (involvement === "none") repScore = 5;
-    else if (involvement === "passive") repScore = 85;
+    else if (involvement === "passive") repScore = 90;
     else {
       if (category === "문서사무") repScore = 85;
       else if (category === "정보학습") repScore = 75;
@@ -104,7 +229,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const totalHr = activities.reduce((s, a) => s + a.original_duration_hr, 0) || 1;
 
-  // [핵심 수정] 뺄셈 금지! 실제 데이터 필터링 합산만 수행 (그래프 정합성 해결)
+  // [중요] 뺄셈 없는 정밀 합산
   const timeReport: TimeReport = {
     totalHr,
     erosionHr: activities
@@ -116,74 +241,87 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     humanHr: activities.filter((a) => a.replacement_level === "human").reduce((s, a) => s + a.original_duration_hr, 0),
   };
 
-  // 경제적 가치: 획득(파랑) + 증강(초록) 시간만 인정
+  const humanPercent = Math.round((timeReport.humanHr / totalHr) * 100);
+  const shiftIndex = Math.round(((totalHr - timeReport.humanHr) / totalHr) * 100);
   const economicDaily = Math.round((timeReport.gainHr + timeReport.augmentHr) * HOURLY_VALUE);
 
-  // 시프트 지수 및 기타 로직 (생략/유지)
-  const shiftIndex = Math.round(((totalHr - timeReport.humanHr) / totalHr) * 100);
+  // 페르소나 정보 매칭
+  const persona = PERSONA_MAP[mbti] || PERSONA_MAP["ISTJ"];
 
-  // ... (이후 페르소나 및 결과 반환 로직은 유지하되 위 변수들을 사용)
+  // 웰니스 조언 로직
+  const needsDetox = humanPercent < 20;
+  let wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 아주 건강한 밸런스입니다!`;
+  if (humanPercent < 15)
+    wellnessAdvice = `보라색 구간이 ${humanPercent}%로 매우 낮습니다. 의도적인 디지털 디톡스를 권장합니다.`;
+  else if (humanPercent < 30) wellnessAdvice = `AI와 인간 활동의 균형을 잘 잡고 계시네요.`;
 
   return {
-    // 기존 return 구조 유지하되 위에서 계산된 정확한 수치들 매핑
     shiftIndex,
+    persona: persona.name,
+    personaEmoji: persona.emoji,
+    personaDescription: persona.desc,
+    personaTitle: persona.title,
     activities,
     timeReport,
+    humanTimePercent: humanPercent,
     economicValueDaily: economicDaily,
     economicValueMonthly: economicDaily * 22,
     economicValueYearly: economicDaily * 260,
-    // ... 나머지 필드들
-  } as any; // (실제 타입에 맞춰 반환)
+    percentileRank: Math.max(1, 100 - shiftIndex),
+    wellnessAdvice,
+    needsDetox,
+    compatibleMBTI: persona.compatible,
+    compatiblePersona: persona.compatiblePersona,
+    oneLinerSummary: `나의 AI 시프트 지수는 ${shiftIndex}%! 당신의 일상은 안전한가요? #AI_Shift #AI_시프트`,
+  };
 }
 
-// 컬러/라벨/설명 상수 export
-export const REPLACEMENT_COLORS: Record<ReplacementLevel, string> = {
+// 컬러 및 설명 데이터 (기존 유지)
+export const REPLACEMENT_COLORS: Record<string, string> = {
   critical: "#ef4444",
   high: "#f97316",
-  assist: "#3b82f6",
-  low: "#22c55e",
   medium: "#eab308",
-  human: "#a855f7",
+  low: "#22c55e",
+  assist: "#3b82f6",
+  human: "#8b5cf6",
 };
 
-export const REPLACEMENT_LABELS: Record<ReplacementLevel, string> = {
-  critical: "완전 대체",
+export const REPLACEMENT_LABELS: Record<string, string> = {
+  critical: "AI 대체 위험",
   high: "AI 잠식",
-  assist: "자동화 성공",
-  low: "보조 활용",
   medium: "부분 지원",
-  human: "인간 고유",
+  low: "보조 활용",
+  assist: "자동화 성공",
+  human: "인간 고유 영역",
 };
 
-export const REPLACEMENT_DESCRIPTIONS: Record<ReplacementLevel, string> = {
-  critical: "AI가 거의 완전히 대체 가능",
-  high: "알고리즘에 의해 시간이 잠식됨",
-  assist: "AI 도구로 효율이 크게 향상",
-  low: "AI가 보조적으로 활용 가능",
-  medium: "AI가 부분적으로 지원 가능",
-  human: "인간만이 할 수 있는 활동",
+export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
+  critical: "AI로 즉시 대체 가능한 영역.",
+  high: "알고리즘에 의해 잠식되고 있는 시간.",
+  medium: "AI와 인간의 협업이 필요한 지대.",
+  low: "인간의 판단이 핵심인 보조 영역.",
+  assist: "AI를 통해 자동화에 성공한 영역.",
+  human: "AI가 개입할 수 없는 가치 있는 시간.",
 };
 
-export const TIME_CATEGORY_COLORS: Record<string, string> = {
-  erosionHr: "#f97316",
-  gainHr: "#3b82f6",
-  augmentHr: "#22c55e",
-  mixedHr: "#eab308",
-  humanHr: "#a855f7",
+export const TIME_CATEGORY_COLORS = {
+  gain: "#3b82f6",
+  erosion: "#ef4444",
+  augment: "#22c55e",
+  mixed: "#eab308",
+  human: "#8b5cf6",
 };
-
-export const TIME_CATEGORY_LABELS: Record<string, string> = {
-  erosionHr: "AI 잠식",
-  gainHr: "자동화 성공",
-  augmentHr: "보조 활용",
-  mixedHr: "부분 지원",
-  humanHr: "인간 고유",
+export const TIME_CATEGORY_LABELS = {
+  gain: "획득 시간",
+  erosion: "잠식 시간",
+  augment: "증강 시간",
+  mixed: "혼재 시간",
+  human: "고유 시간",
 };
-
-export const TIME_CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  erosionHr: "알고리즘에 빼앗긴 시간",
-  gainHr: "AI로 절약한 시간",
-  augmentHr: "AI 보조로 증강된 시간",
-  mixedHr: "AI가 일부 지원하는 시간",
-  humanHr: "순수 인간 활동 시간",
+export const TIME_CATEGORY_DESCRIPTIONS = {
+  gain: "AI로 번 시간.",
+  erosion: "뺏긴 시간.",
+  augment: "강해진 시간.",
+  mixed: "협업한 시간.",
+  human: "순수한 인간의 시간.",
 };
