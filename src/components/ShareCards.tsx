@@ -167,10 +167,12 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     try {
       const { data, error } = await supabase
         .from("shared_results")
-        .insert({
-          mbti: mbti || "UNKNOWN",
-          result_data: result as unknown as Record<string, unknown>,
-        })
+        .insert([
+          {
+            mbti: mbti || "UNKNOWN",
+            result_data: result as unknown as Record<string, unknown>,
+          },
+        ])
         .select("id")
         .single();
 
