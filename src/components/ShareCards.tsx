@@ -4,6 +4,7 @@ import type { AnalysisResult } from "@/lib/types";
 import { X, Download, Loader2, Check, Link2, MessageSquare } from "lucide-react";
 import { REPLACEMENT_COLORS } from "@/lib/analysis-engine";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const SERVICE_URL = "ai-shift-compass.lovable.app";
 
@@ -21,18 +22,20 @@ function useIsMobile() {
   return mobile;
 }
 
-// ── URL Encoding Helper (추가된 부분) ──
-// 사용자의 결과 데이터를 Base64로 인코딩하여 고유 URL을 생성합니다.
-const encodeResultToUrl = (result: AnalysisResult, mbti: string): string => {
-  try {
-    const dataString = JSON.stringify({ result, mbti });
-    // 한글 등 유니코드 처리를 위해 encodeURIComponent 사용 후 btoa 변환
-    const encoded = btoa(encodeURIComponent(dataString));
-    return `https://${SERVICE_URL}/result?data=${encoded}`;
-  } catch (error) {
-    console.error("Failed to encode result:", error);
-    return `https://${SERVICE_URL}`; // 인코딩 실패 시 메인 URL 반환
+// ── DB에 결과 저장 후 짧은 URL 반환 ──
+const saveAndGetShareUrl = async (result: AnalysisResult, mbti: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from("shared_results")
+    .insert({ mbti, result_data: result as any })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to save result:", error);
+    return null;
   }
+
+  return `https://${SERVICE_URL}/result/${data.id}`;
 };
 
 // ── Platform Icons (inline SVG for reliability) ──
@@ -221,16 +224,28 @@ function fallbackCopyText(text: string): boolean {
 export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [savingLink, setSavingLink] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // ⭐️ 핵심 수정: 내 결과가 포함된 공유용 동적 URL 생성
-  const myResultUrl = encodeResultToUrl(result, mbti);
+  // DB에 저장하고 공유 URL을 캐싱
+  const ensureShareUrl = async (): Promise<string | null> => {
+    if (shareUrl) return shareUrl;
+    setSavingLink(true);
+    const url = await saveAndGetShareUrl(result, mbti);
+    setSavingLink(false);
+    if (url) {
+      setShareUrl(url);
+      return url;
+    }
+    toast.error("링크 생성에 실패했습니다. 다시 시도해주세요.");
+    return null;
+  };
 
-  // ⭐️ 텍스트 수정: 하드코딩된 URL 대신 myResultUrl 사용
-  const getShareText = () => {
+  const getShareText = (url: string) => {
     const base = `나의 AI 시프트 지수는 ${result.shiftIndex}%! 나는 ${mbti === "UNKNOWN" ? "" : mbti + ": "}${result.persona}. ${result.oneLinerSummary}`;
-    return `${base}\n\n👉 나의 결과 확인 및 테스트하기:\n${myResultUrl}`;
+    return `${base}\n\n👉 나의 결과 확인 및 테스트하기:\n${url}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
@@ -267,7 +282,9 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
   // ── Link copy with fallback ──
   const handleCopyLink = async () => {
-    const text = getShareText();
+    const url = await ensureShareUrl();
+    if (!url) return;
+    const text = getShareText(url);
     let ok = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -321,20 +338,23 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   };
 
   // ── Naver Blog ──
-  const handleNaverBlog = () => {
+  const handleNaverBlog = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
     const title = encodeURIComponent(`나의 AI 시프트 지수: ${result.shiftIndex}% - ${result.persona}`);
-    // ⭐️ 네이버 URL 공유 시 동적 URL 파라미터 적용
-    const url = encodeURIComponent(myResultUrl);
-    window.open(`https://blog.naver.com/openapi/share?url=${url}&title=${title}`, "_blank", "width=600,height=500");
+    const encodedUrl = encodeURIComponent(url);
+    window.open(`https://blog.naver.com/openapi/share?url=${encodedUrl}&title=${title}`, "_blank", "width=600,height=500");
   };
 
   // ── KakaoTalk: Web Share API or fallback ──
   const handleKakao = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
     if (isMobile && navigator.share) {
       const blob = await captureCard();
       if (blob) {
         const file = new File([blob], "ai-shift-result.png", { type: "image/png" });
-        const shareData: ShareData = { title: "AI Life Shift 진단 결과", text: getShareText(), files: [file] };
+        const shareData: ShareData = { title: "AI Life Shift 진단 결과", text: getShareText(url), files: [file] };
         if (navigator.canShare?.(shareData)) {
           try {
             await navigator.share(shareData);
@@ -351,15 +371,19 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   };
 
   // ── SMS ──
-  const handleSMS = () => {
-    const text = encodeURIComponent(getShareText());
+  const handleSMS = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
+    const text = encodeURIComponent(getShareText(url));
     const separator = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "&" : "?";
     window.location.href = `sms:${separator}body=${text}`;
   };
 
   // ── X (Twitter) ──
-  const handleX = () => {
-    const text = encodeURIComponent(getShareText());
+  const handleX = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
+    const text = encodeURIComponent(getShareText(url));
     window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
   };
 
@@ -389,10 +413,10 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             <ShareCard result={result} mbti={mbti} />
           </div>
 
-          {capturing && (
+          {(capturing || savingLink) && (
             <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              공유 이미지를 생성 중입니다...
+              {savingLink ? "링크 생성 중..." : "공유 이미지를 생성 중입니다..."}
             </div>
           )}
 
@@ -404,7 +428,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
                 <button
                   key={id}
                   onClick={handler}
-                  disabled={capturing}
+                  disabled={capturing || savingLink}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-secondary/80 transition-all disabled:opacity-50 group"
                 >
                   <div
@@ -423,7 +447,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
           <div className="mt-4 flex gap-2">
             <button
               onClick={handleDownloadAndToast}
-              disabled={capturing}
+              disabled={capturing || savingLink}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
@@ -431,10 +455,11 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </button>
             <button
               onClick={handleCopyLink}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors"
+              disabled={savingLink}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
-              {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-              {copied ? "복사됨!" : "링크 복사"}
+              {savingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              {savingLink ? "링크 생성 중..." : copied ? "복사됨!" : "링크 복사"}
             </button>
           </div>
 
