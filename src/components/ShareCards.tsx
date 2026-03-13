@@ -170,7 +170,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
         .insert([
           {
             mbti: mbti || "UNKNOWN",
-            result_data: result as unknown as import("@/integrations/supabase/client").Json,
+            result_data: result as unknown as import("@/integrations/supabase/types").Database["public"]["Tables"]["shared_results"]["Insert"]["result_data"],
           },
         ])
         .select("id")
