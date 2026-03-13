@@ -56,9 +56,7 @@ export default function EmailSignup({ mbti, shiftIndex }: EmailSignupProps) {
           <Check className="w-6 h-6 text-primary" />
         </div>
         <p className="text-sm font-semibold text-foreground">신청 완료! 🎉</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          정식 출시 시 상세 분석지와 1개월 무료 이용권을 보내드립니다.
-        </p>
+        <p className="text-xs text-muted-foreground mt-1">정식 출시 소식을 가장 먼저 알려드립니다.</p>
       </div>
     );
   }
@@ -69,11 +67,9 @@ export default function EmailSignup({ mbti, shiftIndex }: EmailSignupProps) {
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
           <Mail className="w-5 h-5 text-primary" />
         </div>
-        <h3 className="text-sm font-semibold text-foreground">
-          이 분석 리포트를 메일로 소장하고 정식 출시 혜택을 받으세요! 🎁
-        </h3>
+        <h3 className="text-sm font-semibold text-foreground">업데이트 된 분석 리포트를 받고 싶으신가요? 🎁</h3>
         <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-          정식 버전 출시 시 <strong>'가장 먼저'</strong> 사용권을 보내드립니다.
+          정식 버전 출시 소식을 <strong>'가장 먼저'</strong> 알려드립니다.
         </p>
       </div>
       <div className="flex gap-2">
