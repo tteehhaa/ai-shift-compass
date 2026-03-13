@@ -406,19 +406,28 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       )}
 
-      {/* Wellness / Detox -> 업무 방식 혁신 제안으로 수정 */}
-      <div className={cn("glass-card rounded-3xl p-6", result.needsDetox && "border-destructive/30")}>
-        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+      {/* 업무 방식 혁신 제안 — Center-aligned data card */}
+      <div className="glass-card rounded-3xl p-8 text-center">
+        <div className="text-5xl mb-4">
           {result.needsDetox ? (
-            <AlertTriangle className="w-4 h-4 text-destructive" />
+            <span>⚠️</span>
           ) : (
-            <Lightbulb className="w-4 h-4" style={{ color: TIME_CATEGORY_COLORS.human }} />
+            <span>💡</span>
           )}
-          업무 방식 혁신 제안
-        </h3>
-        <p className="text-sm text-muted-foreground leading-relaxed">{result.wellnessAdvice}</p>
+        </div>
+        <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">Work Innovation</p>
+        <h3 className="text-xl font-bold text-foreground mb-2">업무 방식 혁신 제안</h3>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            인간 고유 활동 비율{" "}
+            <span className="font-bold text-foreground" style={{ color: TIME_CATEGORY_COLORS.human }}>
+              {result.humanTimePercent}%
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{result.wellnessAdvice}</p>
+        </div>
         {result.needsDetox && (
-          <div className="mt-4 p-3 rounded-xl bg-secondary/50 border border-border/50">
+          <div className="mt-5 p-4 rounded-2xl bg-secondary/50 border border-border/50">
             <p className="text-xs font-medium text-foreground">💡 업무 프레임워크 전환</p>
             <p className="text-xs text-muted-foreground mt-1">
               단순 반복 업무를 줄이고 기획, 전략, 관계 구축 등 인간 고유의 역량에 집중해보세요.
@@ -428,8 +437,9 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       </div>
 
       {/* Ranking */}
-      <div className="glass-card rounded-3xl p-6 text-center">
+      <div className="glass-card rounded-3xl p-8 text-center">
         <TrendingUp className="w-6 h-6 mx-auto mb-3" style={{ color: TIME_CATEGORY_COLORS.gain }} />
+        <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">Productivity Rank</p>
         <p className="text-sm text-muted-foreground">AI 활용 생산성</p>
         <p className="text-2xl font-bold text-foreground mt-1">
           전체 참여자의 상위 <CountUp end={result.percentileRank} suffix="%" className="font-bold" />
@@ -437,20 +447,22 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       </div>
 
       {/* MBTI Persona */}
-      <div className="glass-card rounded-3xl p-6">
+      <div className="glass-card rounded-3xl p-8">
         <div className="text-center mb-4">
-          <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">나의 AI 페르소나</p>
+          <p className="text-xs text-muted-foreground tracking-widest uppercase mb-3">나의 AI 페르소나</p>
           <div className="text-5xl mb-3">{result.personaEmoji}</div>
           <p className="text-xs text-muted-foreground">{mbti === "UNKNOWN" ? "MBTI 모름" : mbti}</p>
           <h3 className="text-xl font-bold text-foreground">{result.persona}</h3>
           <p className="text-sm text-muted-foreground mt-1">{result.personaTitle}</p>
         </div>
         <p className="text-sm text-muted-foreground text-center leading-relaxed">{result.personaDescription}</p>
-        <div className="mt-5 p-4 rounded-2xl bg-secondary/50 text-center">
-          <p className="text-xs text-muted-foreground mb-1">가장 잘 맞는 AI 파트너</p>
+        <div className="mt-6 p-5 rounded-2xl bg-secondary/50 text-center space-y-2">
+          <p className="text-xs text-muted-foreground tracking-widest uppercase">Best AI Partner</p>
+          <div className="text-3xl">{result.compatibleEmoji}</div>
           <p className="text-sm font-semibold text-foreground">
             {result.compatibleMBTI}: {result.compatiblePersona}
           </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{result.compatibleReason}</p>
         </div>
       </div>
 
