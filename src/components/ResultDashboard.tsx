@@ -35,8 +35,8 @@ function getCoffeeCount(value: number) {
   return Math.floor(value / 5000);
 }
 function getMcdonaldsCount(value: number) {
-  // 2025 서울 기준 맥도날드 상품 가치 (빅맥 6500원 기준)
-  return Math.floor(value / 6500);
+  // 2025 서울 기준 맥도날드 빅맥 세트 5,500원 기준
+  return Math.floor(value / 5500);
 }
 
 function getAnnualMetaphor(yearly: number): string {
@@ -317,11 +317,12 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             />
           </div>
           {mcdonalds > 0 && (
-            <div className="flex items-center gap-1.5 justify-end mb-4">
-              <span className="text-lg">🍟</span>
-              <span className="text-xs text-muted-foreground">맥도날드 지수 {mcdonalds}세트</span>
+            <div className="flex items-center gap-1.5 justify-end mb-1">
+              <span className="text-lg">🍔</span>
+              <span className="text-xs text-muted-foreground">맥도날드 빅맥 {mcdonalds}세트</span>
             </div>
           )}
+          <p className="text-[10px] text-muted-foreground/50 text-right">* 서울 기준 빅맥 세트 5,500원 기준</p>
 
           {/* Annual — HERO */}
           <div
