@@ -12,15 +12,11 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp,
   Clock,
-  Heart,
   Share2,
-  AlertTriangle,
   Info,
   ChevronDown,
   ChevronUp,
   Coffee,
-  Clapperboard,
-  Lightbulb,
 } from "lucide-react";
 import EmailSignup from "@/components/EmailSignup";
 import CountUp from "@/components/CountUp";
