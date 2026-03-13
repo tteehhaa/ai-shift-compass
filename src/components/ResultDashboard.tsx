@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
+import CommunityRanking from "@/components/CommunityRanking";
 import {
   REPLACEMENT_COLORS,
   REPLACEMENT_LABELS,
@@ -470,6 +471,9 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         <Share2 className="w-4 h-4" />
         결과 공유하기
       </button>
+
+      {/* Community Ranking */}
+      <CommunityRanking activities={result.activities} />
 
       {/* Email Signup */}
       <EmailSignup mbti={mbti} shiftIndex={result.shiftIndex} />
