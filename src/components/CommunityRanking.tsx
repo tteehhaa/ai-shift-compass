@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { AnalyzedActivity } from "@/lib/types";
-import { Trophy } from "lucide-react";
+import { Trophy, Medal } from "lucide-react";
+import { REPLACEMENT_COLORS, REPLACEMENT_LABELS } from "@/lib/analysis-engine";
 
 interface CommunityRankingProps {
   activities: AnalyzedActivity[];
