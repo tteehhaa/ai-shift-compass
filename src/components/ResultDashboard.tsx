@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Clock,
   Heart,
-  Zap,
+  Share2,
   AlertTriangle,
   Info,
   ChevronDown,
@@ -412,7 +412,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {result.needsDetox ? (
             <AlertTriangle className="w-4 h-4 text-destructive" />
           ) : (
-            <Zap className="w-4 h-4" style={{ color: TIME_CATEGORY_COLORS.human }} />
+            <Lightbulb className="w-4 h-4" style={{ color: TIME_CATEGORY_COLORS.human }} />
           )}
           업무 방식 혁신 제안
         </h3>
@@ -457,9 +457,9 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       {/* Share CTA */}
       <button
         onClick={onShowShare}
-        className="w-full rounded-2xl bg-primary text-primary-foreground py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.99]"
+        className="w-full rounded-2xl border border-border/50 text-muted-foreground py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:border-[#E85D22]/40 hover:text-[#E85D22] hover:bg-[#E85D22]/5 active:scale-[0.97]"
       >
-        <Zap className="w-4 h-4" />
+        <Share2 className="w-4 h-4" />
         결과 공유하기
       </button>
 
