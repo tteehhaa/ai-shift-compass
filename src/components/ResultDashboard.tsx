@@ -412,7 +412,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {result.needsDetox ? (
             <AlertTriangle className="w-4 h-4 text-destructive" />
           ) : (
-            <Zap className="w-4 h-4" style={{ color: TIME_CATEGORY_COLORS.human }} />
+            <Lightbulb className="w-4 h-4" style={{ color: TIME_CATEGORY_COLORS.human }} />
           )}
           업무 방식 혁신 제안
         </h3>
