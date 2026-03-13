@@ -154,7 +154,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <div className="flex flex-wrap gap-3 justify-center">
             {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
               <div key={key} className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color as string }} />
                 <span className="text-[11px] text-muted-foreground">{REPLACEMENT_LABELS[key]}</span>
               </div>
             ))}
