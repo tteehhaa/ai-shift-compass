@@ -136,4 +136,54 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   } as any; // (실제 타입에 맞춰 반환)
 }
 
-// 컬러/라벨 정의는 기존과 동일하게 유지
+// 컬러/라벨/설명 상수 export
+export const REPLACEMENT_COLORS: Record<ReplacementLevel, string> = {
+  critical: "#ef4444",
+  high: "#f97316",
+  assist: "#3b82f6",
+  low: "#22c55e",
+  medium: "#eab308",
+  human: "#a855f7",
+};
+
+export const REPLACEMENT_LABELS: Record<ReplacementLevel, string> = {
+  critical: "완전 대체",
+  high: "AI 잠식",
+  assist: "자동화 성공",
+  low: "보조 활용",
+  medium: "부분 지원",
+  human: "인간 고유",
+};
+
+export const REPLACEMENT_DESCRIPTIONS: Record<ReplacementLevel, string> = {
+  critical: "AI가 거의 완전히 대체 가능",
+  high: "알고리즘에 의해 시간이 잠식됨",
+  assist: "AI 도구로 효율이 크게 향상",
+  low: "AI가 보조적으로 활용 가능",
+  medium: "AI가 부분적으로 지원 가능",
+  human: "인간만이 할 수 있는 활동",
+};
+
+export const TIME_CATEGORY_COLORS: Record<string, string> = {
+  erosionHr: "#f97316",
+  gainHr: "#3b82f6",
+  augmentHr: "#22c55e",
+  mixedHr: "#eab308",
+  humanHr: "#a855f7",
+};
+
+export const TIME_CATEGORY_LABELS: Record<string, string> = {
+  erosionHr: "AI 잠식",
+  gainHr: "자동화 성공",
+  augmentHr: "보조 활용",
+  mixedHr: "부분 지원",
+  humanHr: "인간 고유",
+};
+
+export const TIME_CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  erosionHr: "알고리즘에 빼앗긴 시간",
+  gainHr: "AI로 절약한 시간",
+  augmentHr: "AI 보조로 증강된 시간",
+  mixedHr: "AI가 일부 지원하는 시간",
+  humanHr: "순수 인간 활동 시간",
+};
