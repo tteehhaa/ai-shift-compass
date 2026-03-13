@@ -73,6 +73,7 @@ export default function Index() {
     setStep("input");
     setResult(null);
     setShowShare(false);
+    navigate("/", { replace: true });
   };
 
   return (
