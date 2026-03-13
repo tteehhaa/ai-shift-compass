@@ -290,6 +290,9 @@ export default function AdminDashboard() {
                       <td className="px-5 py-3 text-muted-foreground">
                         {new Date(sub.created_at).toLocaleDateString("ko-KR")}
                       </td>
+                      <td className="px-5 py-3 text-right">
+                        <button onClick={() => handleDeleteSubscriber(sub.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
