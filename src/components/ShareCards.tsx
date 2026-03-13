@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import type { AnalysisResult } from '@/lib/types';
-import { X, Download, Share2, Loader2, Copy, Check } from 'lucide-react';
+import { X, Download, Share2, Loader2, Copy, Check, Twitter, Facebook, Link2 } from 'lucide-react';
 import { REPLACEMENT_COLORS } from '@/lib/analysis-engine';
+import { toast } from 'sonner';
 
 const SERVICE_URL = 'ai-shift-compass.lovable.app';
 
@@ -10,6 +11,16 @@ interface ShareCardsProps {
   result: AnalysisResult;
   mbti: string;
   onClose: () => void;
+}
+
+// ── detect mobile ──
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    setMobile(/iPhone|iPad|iPod|Android/i.test(ua));
+  }, []);
+  return mobile;
 }
 
 // ── Rainbow Bar ──
@@ -67,7 +78,7 @@ function LogoMark() {
   );
 }
 
-// ── Universal Share Card ──
+// ── Universal Share Card (9:16, service URL at bottom) ──
 function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
   return (
     <div
@@ -81,13 +92,11 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
         padding: '28px 24px',
       }}
     >
-      {/* Top */}
       <div className="flex items-center justify-between">
         <LogoMark />
         <span className="text-[10px] text-gray-400 font-medium">AI 시프트 진단</span>
       </div>
 
-      {/* Center */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-5">
         <div className="text-center space-y-1">
           <div className="text-5xl mb-2">{result.personaEmoji}</div>
@@ -123,7 +132,7 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
         </div>
       </div>
 
-      {/* Bottom CTA */}
+      {/* Service URL — always visible in captured image */}
       <div className="text-center space-y-1">
         <p className="text-xs font-semibold" style={{ color: '#3b82f6' }}>👉 너도 해봐! 나의 AI 시프트 진단</p>
         <p className="text-[8px] text-gray-300">{SERVICE_URL}</p>
@@ -139,6 +148,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const getShareText = () => {
     const base = `나의 AI 시프트 지수는 ${result.shiftIndex}%! 나는 ${mbti === 'UNKNOWN' ? '' : mbti + ': '}${result.persona}. ${result.oneLinerSummary}`;
@@ -147,7 +157,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
   const captureCard = async (): Promise<Blob | null> => {
     if (!cardRef.current) return null;
-    setCapturing(true);
     try {
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: '#ffffff',
@@ -157,49 +166,114 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
       return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), 'image/png');
       });
-    } finally {
-      setCapturing(false);
+    } catch {
+      return null;
     }
   };
 
-  const handleDownload = async () => {
-    const blob = await captureCard();
-    if (!blob) return;
+  const downloadBlob = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ai-life-shift.png';
+    a.download = 'ai-shift-result.png';
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const copyImageToClipboard = async (blob: Blob): Promise<boolean> => {
+    try {
+      // Clipboard API requires a PNG ClipboardItem
+      const item = new ClipboardItem({ 'image/png': blob });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch {
+      console.warn('Clipboard write not supported in this browser.');
+      return false;
+    }
+  };
+
+  // ── Main share handler ──
   const handleShare = async () => {
+    // HTTPS check
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      console.warn('공유 기능은 HTTPS 환경에서만 작동합니다.');
+      toast.error('공유 기능은 HTTPS 환경에서만 작동합니다.');
+      return;
+    }
+
+    setCapturing(true);
+    const blob = await captureCard();
+    setCapturing(false);
+    if (!blob) {
+      toast.error('이미지 생성에 실패했습니다.');
+      return;
+    }
+
+    // ── Mobile: Web Share API with file ──
+    if (isMobile && navigator.share) {
+      const file = new File([blob], 'ai-shift-result.png', { type: 'image/png' });
+      const shareData: ShareData = {
+        title: 'AI Life Shift 진단 결과',
+        text: getShareText(),
+        files: [file],
+      };
+
+      // Check if sharing files is supported
+      if (navigator.canShare?.(shareData)) {
+        try {
+          await navigator.share(shareData);
+          return; // success — system share sheet handled it
+        } catch {
+          // User cancelled — fall through to download
+        }
+      } else {
+        // File sharing not supported, try text-only share
+        try {
+          await navigator.share({ title: 'AI Life Shift 진단 결과', text: getShareText(), url: `https://${SERVICE_URL}` });
+          // Also download so they have the image
+          downloadBlob(blob);
+          return;
+        } catch { /* cancelled */ }
+      }
+    }
+
+    // ── Desktop (PC): download + clipboard copy ──
+    downloadBlob(blob);
+    const clipboardOk = await copyImageToClipboard(blob);
+    if (clipboardOk) {
+      toast.success('이미지가 다운로드되고 클립보드에 복사되었습니다! 원하는 곳에 붙여넣기(Ctrl+V) 하세요.');
+    } else {
+      toast.success('이미지가 다운로드되었습니다.');
+    }
+  };
+
+  // ── Download only ──
+  const handleDownload = async () => {
     setCapturing(true);
     const blob = await captureCard();
     setCapturing(false);
     if (!blob) return;
-
-    const file = new File([blob], 'ai-life-shift.png', { type: 'image/png' });
-    const shareData = { title: 'AI Life Shift 진단 결과', text: getShareText(), files: [file] };
-
-    // Web Share API — lets user pick Instagram, Threads, X, Facebook, KakaoTalk, etc.
-    if (navigator.share && navigator.canShare?.(shareData)) {
-      try { await navigator.share(shareData); return; } catch { /* user cancelled */ }
-    }
-
-    // Fallback: just download the image
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ai-life-shift.png';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob);
+    toast.success('이미지가 저장되었습니다.');
   };
 
-  const handleCopy = () => {
+  // ── Copy link ──
+  const handleCopyLink = () => {
     navigator.clipboard.writeText(getShareText());
     setCopied(true);
+    toast.success('링크와 텍스트가 클립보드에 복사되었습니다.');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ── PC platform shortcuts ──
+  const handleTwitterShare = () => {
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  };
+
+  const handleFacebookShare = () => {
+    const url = encodeURIComponent(`https://${SERVICE_URL}`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
   };
 
   return (
@@ -225,7 +299,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </div>
           )}
 
-          {/* Single row of actions */}
+          {/* Primary actions */}
           <div className="mt-4 flex gap-2">
             <button
               onClick={handleShare}
@@ -241,13 +315,32 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             >
               <Download className="w-4 h-4" />저장
             </button>
-            <button
-              onClick={handleCopy}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </button>
           </div>
+
+          {/* Desktop-only: platform shortcuts */}
+          {!isMobile && (
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={handleCopyLink}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+                {copied ? '복사됨' : '링크 복사'}
+              </button>
+              <button
+                onClick={handleTwitterShare}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <Twitter className="w-3.5 h-3.5" />X 공유
+              </button>
+              <button
+                onClick={handleFacebookShare}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <Facebook className="w-3.5 h-3.5" />Facebook
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
