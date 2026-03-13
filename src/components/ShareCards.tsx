@@ -447,7 +447,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
           <div className="mt-4 flex gap-2">
             <button
               onClick={handleDownloadAndToast}
-              disabled={capturing}
+              disabled={capturing || savingLink}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
