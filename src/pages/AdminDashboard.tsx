@@ -77,6 +77,30 @@ export default function AdminDashboard() {
     navigate("/admin");
   };
 
+  const handleDeleteRanking = async (activityName: string) => {
+    if (!confirm(`"${activityName}" 항목을 삭제하시겠습니까?`)) return;
+    const { error } = await supabase.from("activity_rankings").delete().eq("activity_name", activityName);
+    if (error) { toast.error("삭제 실패"); return; }
+    setRankings((prev) => prev.filter((r) => r.activity_name !== activityName));
+    toast.success("삭제되었습니다");
+  };
+
+  const handleDeleteSubscriber = async (id: string) => {
+    if (!confirm("이 구독자를 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("email_subscribers").delete().eq("id", id);
+    if (error) { toast.error("삭제 실패"); return; }
+    setSubscribers((prev) => prev.filter((s) => s.id !== id));
+    toast.success("삭제되었습니다");
+  };
+
+  const handleDeleteShare = async (id: string) => {
+    if (!confirm("이 공유 결과를 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("shared_results").delete().eq("id", id);
+    if (error) { toast.error("삭제 실패"); return; }
+    setSharedResults((prev) => prev.filter((s) => s.id !== id));
+    toast.success("삭제되었습니다");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
