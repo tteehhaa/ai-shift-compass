@@ -224,16 +224,28 @@ function fallbackCopyText(text: string): boolean {
 export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [savingLink, setSavingLink] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // ⭐️ 핵심 수정: 내 결과가 포함된 공유용 동적 URL 생성
-  const myResultUrl = encodeResultToUrl(result, mbti);
+  // DB에 저장하고 공유 URL을 캐싱
+  const ensureShareUrl = async (): Promise<string | null> => {
+    if (shareUrl) return shareUrl;
+    setSavingLink(true);
+    const url = await saveAndGetShareUrl(result, mbti);
+    setSavingLink(false);
+    if (url) {
+      setShareUrl(url);
+      return url;
+    }
+    toast.error("링크 생성에 실패했습니다. 다시 시도해주세요.");
+    return null;
+  };
 
-  // ⭐️ 텍스트 수정: 하드코딩된 URL 대신 myResultUrl 사용
-  const getShareText = () => {
+  const getShareText = (url: string) => {
     const base = `나의 AI 시프트 지수는 ${result.shiftIndex}%! 나는 ${mbti === "UNKNOWN" ? "" : mbti + ": "}${result.persona}. ${result.oneLinerSummary}`;
-    return `${base}\n\n👉 나의 결과 확인 및 테스트하기:\n${myResultUrl}`;
+    return `${base}\n\n👉 나의 결과 확인 및 테스트하기:\n${url}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
@@ -270,7 +282,9 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
   // ── Link copy with fallback ──
   const handleCopyLink = async () => {
-    const text = getShareText();
+    const url = await ensureShareUrl();
+    if (!url) return;
+    const text = getShareText(url);
     let ok = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -324,20 +338,23 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   };
 
   // ── Naver Blog ──
-  const handleNaverBlog = () => {
+  const handleNaverBlog = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
     const title = encodeURIComponent(`나의 AI 시프트 지수: ${result.shiftIndex}% - ${result.persona}`);
-    // ⭐️ 네이버 URL 공유 시 동적 URL 파라미터 적용
-    const url = encodeURIComponent(myResultUrl);
-    window.open(`https://blog.naver.com/openapi/share?url=${url}&title=${title}`, "_blank", "width=600,height=500");
+    const encodedUrl = encodeURIComponent(url);
+    window.open(`https://blog.naver.com/openapi/share?url=${encodedUrl}&title=${title}`, "_blank", "width=600,height=500");
   };
 
   // ── KakaoTalk: Web Share API or fallback ──
   const handleKakao = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
     if (isMobile && navigator.share) {
       const blob = await captureCard();
       if (blob) {
         const file = new File([blob], "ai-shift-result.png", { type: "image/png" });
-        const shareData: ShareData = { title: "AI Life Shift 진단 결과", text: getShareText(), files: [file] };
+        const shareData: ShareData = { title: "AI Life Shift 진단 결과", text: getShareText(url), files: [file] };
         if (navigator.canShare?.(shareData)) {
           try {
             await navigator.share(shareData);
@@ -354,15 +371,19 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   };
 
   // ── SMS ──
-  const handleSMS = () => {
-    const text = encodeURIComponent(getShareText());
+  const handleSMS = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
+    const text = encodeURIComponent(getShareText(url));
     const separator = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "&" : "?";
     window.location.href = `sms:${separator}body=${text}`;
   };
 
   // ── X (Twitter) ──
-  const handleX = () => {
-    const text = encodeURIComponent(getShareText());
+  const handleX = async () => {
+    const url = await ensureShareUrl();
+    if (!url) return;
+    const text = encodeURIComponent(getShareText(url));
     window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
   };
 
