@@ -228,19 +228,11 @@ function getPersonaInfo(mbti: string, activeRatio?: number) {
 export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
   const activities: AnalyzedActivity[] = routines.map((r) => {
     const cls = classifyActivity(r.activity);
-    const C = COMPRESSION_RATES[cls.category];
+    const C = cls.group === 'augment' ? COMPRESSION_RATES[cls.category] : 1;
 
-    let savedTime: number;
-    if (cls.group === 'erosion') {
-      // AI 잠식: stolen_time — 획득 없음, 시간을 빼앗김
-      savedTime = 0;
-    } else if (cls.group === 'human') {
-      // 인간 고유: AI 개입 없음
-      savedTime = 0;
-    } else {
-      // AI 증강/획득: 압축으로 절약
-      savedTime = Math.min(r.duration * (1 - 1 / C), r.duration * 0.9);
-    }
+    const savedTime = cls.group === 'augment'
+      ? Math.min(r.duration * (1 - 1 / C), r.duration * 0.9)
+      : 0;
 
     return {
       activity: r.activity,
@@ -250,62 +242,63 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
       category: cls.category,
       is_high_cognitive: cls.isHighCognitive,
       compression_ratio: C,
-      saved_time_hr: Math.round(savedTime),
-      agency_adjusted_hr: Math.round(savedTime), // 1:1 (agency rate 제거 — 유연 대체율로 대체)
-      replacement_score: cls.replacementScore,
+      saved_time_hr: Math.round(savedTime * 100) / 100,
+      agency_adjusted_hr: Math.round(savedTime * 100) / 100,
+      replacement_score: Math.round(cls.replacementScore),
       replacement_level: getReplacementLevel(cls.replacementScore),
     };
   });
 
-  const totalHr = activities.reduce((s, a) => s + a.original_duration_hr, 0) || 1;
+  const totalHr = activities.reduce((sum, activity) => sum + activity.original_duration_hr, 0);
+  const safeTotalHr = totalHr || 1;
+  const round2 = (value: number) => Math.round(value * 100) / 100;
 
-  // ── 5-category time report (strictly from actual data sums) ──
-  const erosionHr = activities
-    .filter(a => a.ai_involvement === 'passive')
-    .reduce((s, a) => s + a.original_duration_hr, 0);
-  const humanHr = activities
-    .filter(a => a.ai_involvement === 'none')
-    .reduce((s, a) => s + a.original_duration_hr, 0);
-  const gainHr = activities
-    .filter(a => a.ai_involvement === 'active')
-    .reduce((s, a) => s + a.saved_time_hr, 0);
-  const augmentHr = activities
-    .filter(a => a.ai_involvement === 'active')
-    .reduce((s, a) => s + (a.original_duration_hr - a.saved_time_hr), 0);
-  const mixedHr = Math.max(0, Math.round(totalHr - erosionHr - humanHr - gainHr - augmentHr));
+  // replacement_level 색상 기준으로만 실제 시간 합산
+  const durationByLevel: Record<ReplacementLevel, number> = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    assist: 0,
+    human: 0,
+  };
+
+  activities.forEach((activity) => {
+    durationByLevel[activity.replacement_level] += activity.original_duration_hr;
+  });
 
   const timeReport: TimeReport = {
-    totalHr: Math.round(totalHr),
-    gainHr: Math.round(gainHr),
-    erosionHr: Math.round(erosionHr),
-    augmentHr: Math.round(augmentHr),
-    mixedHr,
-    humanHr: Math.round(humanHr),
+    totalHr: round2(totalHr),
+    gainHr: round2(durationByLevel.assist),
+    erosionHr: round2(durationByLevel.critical + durationByLevel.high),
+    augmentHr: round2(durationByLevel.low),
+    mixedHr: round2(durationByLevel.medium),
+    humanHr: round2(durationByLevel.human),
   };
 
   // Shift index
-  const sumSavedQ = activities.reduce((s, a) => {
-    const Q = a.is_high_cognitive ? 1.2 : 1.0;
-    return s + a.saved_time_hr * Q;
+  const sumSavedQ = activities.reduce((sum, activity) => {
+    const qualityWeight = activity.is_high_cognitive ? 1.2 : 1.0;
+    return sum + activity.saved_time_hr * qualityWeight;
   }, 0);
-  const sumPassive = activities.filter(a => a.ai_involvement === 'passive').reduce((s, a) => s + a.original_duration_hr, 0);
-  const shiftIndex = Math.min(Math.round(((sumSavedQ + sumPassive) / totalHr) * 100), 100);
+  const sumPassive = activities
+    .filter((activity) => activity.ai_involvement === 'passive')
+    .reduce((sum, activity) => sum + activity.original_duration_hr, 0);
+  const shiftIndex = Math.min(Math.round(((sumSavedQ + sumPassive) / safeTotalHr) * 100), 100);
 
-  const humanPercent = Math.round((timeReport.humanHr / totalHr) * 100);
+  const humanPercent = totalHr > 0 ? Math.round((timeReport.humanHr / safeTotalHr) * 100) : 0;
 
-  // Economic value: (획득 + 증강) × 10,030원
-  // ⚠️ 잠식 시간은 경제적 가치에서 제외 (stolen time = 마이너스)
-  const positiveHr = timeReport.gainHr + timeReport.augmentHr;
-  const economicDaily = Math.round(positiveHr * HOURLY_VALUE);
+  // Economic value: 잠식(erosion)은 제외, 실제 절약 시간만 반영
+  const productiveSavedHr = activities
+    .filter((activity) => activity.ai_involvement === 'active')
+    .reduce((sum, activity) => sum + activity.saved_time_hr, 0);
+  const economicDaily = Math.round(productiveSavedHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
 
-  // 잠식 손실 (참고 정보)
-  const erosionLossDaily = Math.round(timeReport.erosionHr * HOURLY_VALUE);
-
   const percentile = Math.max(1, Math.min(99, 100 - Math.round(shiftIndex * 0.8 + Math.random() * 10)));
 
-  const activeCount = activities.filter(a => a.ai_involvement === 'active').length;
+  const activeCount = activities.filter((activity) => activity.ai_involvement === 'active').length;
   const activeRatio = activities.length > 0 ? activeCount / activities.length : 0.5;
   const persona = getPersonaInfo(mbti, activeRatio);
 
@@ -319,7 +312,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 건강한 밸런스입니다. AI와 공존하는 멋진 라이프스타일이에요!`;
   }
 
-  const oneLiner = `나는 오늘 AI 덕분에 ${timeReport.gainHr}시간을 벌었고, 알고리즘에 ${timeReport.erosionHr}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
+  const oneLiner = `나는 오늘 AI 덕분에 ${Math.round(productiveSavedHr)}시간을 벌었고, 알고리즘에 ${Math.round(timeReport.erosionHr)}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
 
   return {
     shiftIndex,
