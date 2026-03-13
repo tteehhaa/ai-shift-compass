@@ -34,8 +34,9 @@ interface ResultDashboardProps {
 function getCoffeeCount(value: number) {
   return Math.floor(value / 5000);
 }
-function getMovieCount(value: number) {
-  return Math.floor(value / 15000);
+function getMcdonaldsCount(value: number) {
+  // 2025 서울 기준 맥도날드 상품 가치 (빅맥 6500원 기준)
+  return Math.floor(value / 6500);
 }
 
 function getAnnualMetaphor(yearly: number): string {
