@@ -155,6 +155,10 @@ export default function Index() {
 
         {step === "analyzing" && <AnalysisAnimation onComplete={handleAnalysisComplete} />}
 
+        {step === "emailGate" && result && (
+          <EmailGate mbti={mbti} shiftIndex={result.shiftIndex} onContinue={handleEmailGateContinue} />
+        )}
+
         {step === "result" && result && (
           <div className="space-y-8 pb-10">
             <ResultDashboard result={result} mbti={mbti} onShowShare={() => setShowShare(true)} />
