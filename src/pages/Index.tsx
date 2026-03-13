@@ -5,6 +5,7 @@ import RoutineInput from "@/components/RoutineInput";
 import AnalysisAnimation from "@/components/AnalysisAnimation";
 import ResultDashboard from "@/components/ResultDashboard";
 import ShareCards from "@/components/ShareCards";
+import EmailGate from "@/components/EmailGate";
 import { analyzeRoutines } from "@/lib/analysis-engine";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
@@ -17,7 +18,7 @@ const SAMPLE_ROUTINES: RoutineEntry[] = [
   { time: "17:00", activity: "유튜브 시청", duration: 1 },
 ];
 
-type Step = "input" | "analyzing" | "result";
+type Step = "input" | "analyzing" | "emailGate" | "result";
 
 export default function Index() {
   const [step, setStep] = useState<Step>("input");
