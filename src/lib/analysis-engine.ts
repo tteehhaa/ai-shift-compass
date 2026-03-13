@@ -363,10 +363,10 @@ export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
   human:    '정서적 교감, 신체 활동 등 AI가 개입할 수 없는 가치 있는 시간.',
 };
 
-// Time report colors — 동일 색상 코드 사용
+// Time report colors — badge 색상과 1:1 매핑
 export const TIME_CATEGORY_COLORS: Record<string, string> = {
   gain:    '#3b82f6', // 파랑 (= assist)
-  erosion: '#ef4444', // 빨강 (= critical)
+  erosion: '#f97316', // 주황 (= high)
   augment: '#22c55e', // 초록 (= low)
   mixed:   '#eab308', // 노랑 (= medium)
   human:   '#8b5cf6', // 보라 (= human)
