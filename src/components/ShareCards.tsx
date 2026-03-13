@@ -95,43 +95,41 @@ function LogoMark() {
 function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
   return (
     <div
-      className="rounded-2xl overflow-hidden"
+      className="rounded-3xl overflow-hidden glass-card p-7"
       style={{
         aspectRatio: "1/1",
-        background: "linear-gradient(160deg, #f8f9fa 0%, #ffffff 40%, #f0f4ff 100%)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "28px 24px",
       }}
     >
       <div className="flex items-center justify-between">
         <LogoMark />
-        <span className="text-[10px] text-gray-400 font-medium">AI 시프트 진단</span>
+        <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">AI 시프트 진단</span>
       </div>
-      <div className="flex-1 flex flex-col items-center justify-center space-y-4">
+      <div className="flex-1 flex flex-col items-center justify-center space-y-5">
         <div className="text-center space-y-2">
-          <div className="text-5xl mb-4">{result.personaEmoji}</div>
-          <p className="text-gray-400 text-[10px] tracking-[0.2em] uppercase">My AI Persona</p>
-          <h3 className="text-gray-900 text-lg font-bold">
+          <div className="text-5xl mb-3">{result.personaEmoji}</div>
+          <p className="text-muted-foreground text-[10px] tracking-[0.2em] uppercase">My AI Persona</p>
+          <h3 className="text-foreground text-lg font-bold">
             {mbti !== "UNKNOWN" ? `${mbti}: ` : ""}
             {result.persona}
           </h3>
-          <p className="text-gray-400 text-xs">{result.personaTitle}</p>
+          <p className="text-muted-foreground text-xs">{result.personaTitle}</p>
         </div>
         <div className="w-full space-y-2 px-2">
-          <p className="text-gray-400 text-[9px] text-center tracking-wider uppercase">나의 24시간 AI 컬러맵</p>
-          <RainbowBar result={result} height={18} />
+          <p className="text-muted-foreground text-[10px] text-center tracking-wider uppercase">나의 24시간 AI 컬러맵</p>
+          <RainbowBar result={result} height={16} />
           <MiniLegend />
         </div>
         <div className="flex items-center justify-center gap-6">
           <div className="text-center">
-            <p className="text-gray-400 text-[9px]">AI 시프트 지수</p>
-            <p className="text-gray-900 text-2xl font-bold">{result.shiftIndex}%</p>
+            <p className="text-muted-foreground text-[10px] tracking-wider uppercase">AI 시프트 지수</p>
+            <p className="text-foreground text-2xl font-bold">{result.shiftIndex}%</p>
           </div>
-          <div className="w-px h-10 bg-gray-200" />
+          <div className="w-px h-10 bg-border" />
           <div className="text-center">
-            <p className="text-gray-400 text-[9px]">인간 고유 시간</p>
+            <p className="text-muted-foreground text-[10px] tracking-wider uppercase">인간 고유 시간</p>
             <p className="text-2xl font-bold" style={{ color: REPLACEMENT_COLORS.human }}>
               {result.humanTimePercent}%
             </p>
@@ -139,10 +137,10 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
         </div>
       </div>
       <div className="text-center space-y-1">
-        <p className="text-xs font-semibold" style={{ color: "#3b82f6" }}>
-          👉 너도 해봐! 나의 AI 시프트 진단
+        <p className="text-xs font-semibold text-[#E85D22]">
+          너도 해봐! 나의 AI 시프트 진단
         </p>
-        <p className="text-[8px] text-gray-300">ai-shift-compass.lovable.app</p>
+        <p className="text-[10px] text-muted-foreground/60">ai-shift-compass.lovable.app</p>
       </div>
     </div>
   );
