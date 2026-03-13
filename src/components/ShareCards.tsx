@@ -428,7 +428,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
                 <button
                   key={id}
                   onClick={handler}
-                  disabled={capturing}
+                  disabled={capturing || savingLink}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-secondary/80 transition-all disabled:opacity-50 group"
                 >
                   <div
