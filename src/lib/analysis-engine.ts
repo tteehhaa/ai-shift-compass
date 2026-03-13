@@ -304,6 +304,8 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     needsDetox,
     compatibleMBTI: persona.compatible,
     compatiblePersona: persona.compatiblePersona,
+    compatibleEmoji: persona.compatibleEmoji || "🤖",
+    compatibleReason: persona.compatibleReason || "시너지가 뛰어난 AI 파트너입니다.",
     oneLinerSummary: `나의 AI 시프트 지수는 ${shiftIndex}%! 당신의 일상은 안전한가요? #AI_Shift #AI_시프트`,
   };
 }

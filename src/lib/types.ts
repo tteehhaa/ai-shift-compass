@@ -51,6 +51,8 @@ export interface AnalysisResult {
   needsDetox: boolean;
   compatibleMBTI: string;
   compatiblePersona: string;
+  compatibleEmoji: string;
+  compatibleReason: string;
   oneLinerSummary: string;
 }
 
