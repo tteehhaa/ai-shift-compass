@@ -455,7 +455,8 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </button>
             <button
               onClick={handleCopyLink}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors"
+              disabled={savingLink}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
               {copied ? "복사됨!" : "링크 복사"}
