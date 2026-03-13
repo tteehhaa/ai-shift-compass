@@ -211,7 +211,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 건강한 밸런스입니다. AI와 공존하는 멋진 라이프스타일이에요!`;
   }
 
-  const oneLiner = `나는 오늘 AI 덕분에 ${gainHr}시간을 벌었고, 알고리즘에 ${erosionHr}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
+  const oneLiner = `나는 오늘 AI 덕분에 ${timeReport.gainHr}시간을 벌었고, 알고리즘에 ${timeReport.erosionHr}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
 
   return {
     shiftIndex,
