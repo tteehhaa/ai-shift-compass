@@ -28,18 +28,18 @@ interface AugmentRule extends KeywordRule {
 
 // 1) 인간 고유 영역 (🟣 / involvement=none 고정)
 const HUMAN_RULES: KeywordRule[] = [
-  { keywords: ['식사', '밥', '아침', '점심', '저녁', '간식', '야식', '수면', '잠', '낮잠', '목욕', '샤워'], score: 3 },
-  { keywords: ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영'], score: 6 },
-  { keywords: ['대화', '수다', '통화', '전화', '만남', '육아', '돌봄', '가족', '친구'], score: 5 },
-  { keywords: ['명상', '휴식', '기도', '그림', '독서', '책', '일기', '음악감상'], score: 7 },
+  { keywords: ['식사', '밥', '아침', '점심', '저녁', '간식', '야식', '수면', '잠', '낮잠', '목욕', '샤워'], score: 1 },
+  { keywords: ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영'], score: 2 },
+  { keywords: ['대화', '수다', '통화', '전화', '만남', '육아', '돌봄', '가족', '친구'], score: 2 },
+  { keywords: ['명상', '휴식', '기도', '그림', '독서', '책', '일기', '음악감상'], score: 3 },
 ];
 
 // 2) AI 잠식/위험 (🔴/🟠 / involvement=passive 고정)
 const EROSION_RULES: KeywordRule[] = [
-  { keywords: ['쇼츠', '숏폼', '릴스', '틱톡', 'shorts', 'tiktok'], score: 84 },
-  { keywords: ['유튜브', 'youtube', '인스타그램', '인스타', 'instagram', '틱톡', 'threads', '스레드'], score: 80 },
-  { keywords: ['웹서핑', '눈팅', '커뮤니티', '스크롤', '피드', '알고리즘', '추천콘텐츠', '자동재생'], score: 82 },
-  { keywords: ['단순게임', '모바일게임', '시간때우기'], score: 78 },
+  { keywords: ['쇼츠', '숏폼', '릴스', '틱톡', 'shorts', 'tiktok', '무한스크롤'], score: 94 },
+  { keywords: ['유튜브', 'youtube', '인스타그램', '인스타', 'instagram', 'sns', 'threads', '스레드'], score: 92 },
+  { keywords: ['웹서핑', '눈팅', '커뮤니티', '스크롤', '피드', '알고리즘', '추천콘텐츠', '자동재생', '멍때리기'], score: 93 },
+  { keywords: ['단순게임', '모바일게임', '시간때우기', '도파민'], score: 91 },
 ];
 
 // 3) AI 증강/획득 (🔵/🟢/🟡 / involvement=active 고정)
@@ -48,32 +48,32 @@ const AUGMENT_RULES: AugmentRule[] = [
     keywords: ['코딩', '개발', '프로그래밍', '설계', 'api', '서버', '디버깅', '리팩토링'],
     category: '전문기술',
     isHighCognitive: true,
-    score: 52,
-    minScore: 48,
-    maxScore: 60,
+    score: 48,
+    minScore: 42,
+    maxScore: 62,
   },
   {
     keywords: ['보고서', '리포트', '이메일', '메일', '번역', '자료정리', '문서작성', '회의록'],
     category: '문서사무',
     isHighCognitive: false,
     score: 40,
-    minScore: 34,
-    maxScore: 48,
+    minScore: 32,
+    maxScore: 50,
   },
   {
     keywords: ['리서치', '연구', '공부', '학습', '조사', '검색', '논문', '강의'],
     category: '정보학습',
     isHighCognitive: true,
-    score: 46,
-    minScore: 38,
-    maxScore: 54,
+    score: 44,
+    minScore: 36,
+    maxScore: 56,
   },
   {
     keywords: ['기획', '기획안', '아이디어', '브레인스토밍', '콘텐츠기획', '글쓰기', '포스팅'],
     category: '창의기획',
     isHighCognitive: true,
-    score: 50,
-    minScore: 42,
+    score: 46,
+    minScore: 38,
     maxScore: 58,
   },
 ];
@@ -119,52 +119,58 @@ function classifyActivity(text: string): ClassificationResult {
   const erosionMatch = pickBestRule(normalized, EROSION_RULES);
   const augmentMatch = pickBestAugmentRule(normalized);
 
-  const groupHitMap: Record<SemanticGroup, number> = {
-    erosion: erosionMatch.hitCount,
-    augment: augmentMatch.hitCount,
-    human: humanMatch.hitCount,
-  };
+  // 1순위: 신체/생리/대면 활동은 항상 인간 고유 영역으로 강제
+  if (humanMatch.hitCount > 0) {
+    const physicalBonusHits = countKeywordHits(normalized, ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영']);
+    const replacementScore = Math.min(5, Math.max(0, humanMatch.score + Math.max(0, humanMatch.hitCount - 1) - (physicalBonusHits > 0 ? 1 : 0)));
 
-  const maxHit = Math.max(groupHitMap.erosion, groupHitMap.augment, groupHitMap.human);
-  if (maxHit === 0) {
-    return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: 5 };
-  }
-
-  // tie-break priority: erosion > augment > human
-  const group: SemanticGroup = (['erosion', 'augment', 'human'] as const).find((g) => groupHitMap[g] === maxHit) ?? 'human';
-
-  if (group === 'human') {
     return {
       group: 'human',
       category: '일상',
       involvement: 'none',
       isHighCognitive: false,
-      replacementScore: Math.min(10, Math.max(1, humanMatch.score || 5)),
+      replacementScore,
     };
   }
 
-  if (group === 'erosion') {
+  // 2순위: 수동 소비형 디지털 활동은 잠식(=Stolen Time)으로 강제
+  if (erosionMatch.hitCount > 0) {
+    const intensityHits = countKeywordHits(normalized, ['쇼츠', '숏폼', '릴스', '무한스크롤', '도파민', '알고리즘', '자동재생']);
+    const replacementScore = Math.min(100, Math.max(90, erosionMatch.score + Math.max(0, erosionMatch.hitCount - 1) * 2 + intensityHits));
+
     return {
       group: 'erosion',
       category: '일상',
       involvement: 'passive',
       isHighCognitive: false,
-      replacementScore: Math.min(84, Math.max(70, erosionMatch.score || 80)),
+      replacementScore,
     };
   }
 
-  const rule = augmentMatch.rule ?? AUGMENT_RULES[0];
-  const dynamicScore = Math.min(
-    rule.maxScore,
-    Math.max(rule.minScore, rule.score + Math.max(0, augmentMatch.hitCount - 1) * 3),
-  );
+  // 3순위: 생산형 디지털 활동은 증강/획득으로 분류
+  if (augmentMatch.hitCount > 0) {
+    const rule = augmentMatch.rule ?? AUGMENT_RULES[0];
+    const productivityHints = countKeywordHits(normalized, ['작성', '정리', '분석', '개발', '설계', '학습', '연구', '기획', '번역', '디버깅']);
+    const dynamicScore = Math.min(
+      rule.maxScore,
+      Math.max(rule.minScore, rule.score + Math.max(0, augmentMatch.hitCount - 1) * 3 + Math.min(productivityHints, 2) * 2),
+    );
+
+    return {
+      group: 'augment',
+      category: rule.category,
+      involvement: 'active',
+      isHighCognitive: rule.isHighCognitive,
+      replacementScore: dynamicScore,
+    };
+  }
 
   return {
-    group: 'augment',
-    category: rule.category,
-    involvement: 'active',
-    isHighCognitive: rule.isHighCognitive,
-    replacementScore: dynamicScore,
+    group: 'human',
+    category: '일상',
+    involvement: 'none',
+    isHighCognitive: false,
+    replacementScore: 5,
   };
 }
 
@@ -252,8 +258,12 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const totalHr = activities.reduce((sum, activity) => sum + activity.original_duration_hr, 0);
   const safeTotalHr = totalHr || 1;
   const round2 = (value: number) => Math.round(value * 100) / 100;
+  const round2Safe = (value: number) => {
+    const rounded = round2(value);
+    return Math.abs(rounded) < 0.005 ? 0 : rounded;
+  };
 
-  // replacement_level 색상 기준으로만 실제 시간 합산
+  // replacement_level(=테이블 배지 색상) 기준으로만 실제 시간 합산
   const durationByLevel: Record<ReplacementLevel, number> = {
     critical: 0,
     high: 0,
@@ -268,12 +278,12 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   });
 
   const timeReport: TimeReport = {
-    totalHr: round2(totalHr),
-    gainHr: round2(durationByLevel.assist),
-    erosionHr: round2(durationByLevel.critical + durationByLevel.high),
-    augmentHr: round2(durationByLevel.low),
-    mixedHr: round2(durationByLevel.medium),
-    humanHr: round2(durationByLevel.human),
+    totalHr: round2Safe(totalHr),
+    gainHr: round2Safe(durationByLevel.assist),
+    erosionHr: round2Safe(durationByLevel.critical + durationByLevel.high),
+    augmentHr: round2Safe(durationByLevel.low),
+    mixedHr: round2Safe(durationByLevel.medium),
+    humanHr: round2Safe(durationByLevel.human),
   };
 
   // Shift index
@@ -288,11 +298,11 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const humanPercent = totalHr > 0 ? Math.round((timeReport.humanHr / safeTotalHr) * 100) : 0;
 
-  // Economic value: 잠식(erosion)은 제외, 실제 절약 시간만 반영
-  const productiveSavedHr = activities
-    .filter((activity) => activity.ai_involvement === 'active')
+  // Economic value: 파랑/초록(assist/low)으로 실제 절약된 시간만 가치로 인정
+  const valueSavedHr = activities
+    .filter((activity) => activity.ai_involvement === 'active' && (activity.replacement_level === 'assist' || activity.replacement_level === 'low'))
     .reduce((sum, activity) => sum + activity.saved_time_hr, 0);
-  const economicDaily = Math.round(productiveSavedHr * HOURLY_VALUE);
+  const economicDaily = Math.round(valueSavedHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
 
@@ -312,7 +322,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 건강한 밸런스입니다. AI와 공존하는 멋진 라이프스타일이에요!`;
   }
 
-  const oneLiner = `나는 오늘 AI 덕분에 ${Math.round(productiveSavedHr)}시간을 벌었고, 알고리즘에 ${Math.round(timeReport.erosionHr)}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
+  const oneLiner = `나는 오늘 AI 덕분에 ${Math.round(valueSavedHr)}시간을 벌었고, 알고리즘에 ${Math.round(timeReport.erosionHr)}시간을 뺏겼다. 내 삶의 AI 변화율은 ${shiftIndex}%. 너는? #AI_Shift #AI_시프트`;
 
   return {
     shiftIndex,
@@ -366,7 +376,7 @@ export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
 // Time report colors — badge 색상과 1:1 매핑
 export const TIME_CATEGORY_COLORS: Record<string, string> = {
   gain:    '#3b82f6', // 파랑 (= assist)
-  erosion: '#f97316', // 주황 (= high)
+  erosion: '#ef4444', // 빨강 (= critical/high)
   augment: '#22c55e', // 초록 (= low)
   mixed:   '#eab308', // 노랑 (= medium)
   human:   '#8b5cf6', // 보라 (= human)

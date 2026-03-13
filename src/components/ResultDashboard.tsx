@@ -14,6 +14,21 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
 
+  const levelDurations: Record<string, number> = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    assist: 0,
+    human: 0,
+  };
+  result.activities.forEach((activity) => {
+    levelDurations[activity.replacement_level] += activity.original_duration_hr;
+  });
+
+  const replacementBarOrder = ['critical', 'high', 'medium', 'low', 'assist', 'human'] as const;
+  const graphTotalHr = replacementBarOrder.reduce((sum, level) => sum + levelDurations[level], 0) || 1;
+
   // Grouped time report items
   const timeGroups = [
     {
@@ -168,18 +183,18 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <p className="text-[11px] text-muted-foreground mt-1">총 입력 시간</p>
         </div>
 
-        {/* Rainbow bar — same colors as replacement spectrum */}
+        {/* Rainbow bar — replacement_level 배지와 1:1 동기화 */}
         <div className="flex rounded-full overflow-hidden h-4 mb-4">
-          {(['erosion', 'mixed', 'augment', 'gain', 'human'] as const).map((key) => {
-            const val = result.timeReport[`${key}Hr` as keyof typeof result.timeReport] as number;
+          {replacementBarOrder.map((level) => {
+            const val = levelDurations[level];
             if (val <= 0) return null;
             return (
               <div
-                key={key}
+                key={level}
                 className="h-full transition-all"
                 style={{
-                  backgroundColor: TIME_CATEGORY_COLORS[key],
-                  width: `${(val / result.timeReport.totalHr) * 100}%`,
+                  backgroundColor: REPLACEMENT_COLORS[level],
+                  width: `${(val / graphTotalHr) * 100}%`,
                 }}
               />
             );
