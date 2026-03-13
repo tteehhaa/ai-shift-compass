@@ -24,19 +24,40 @@ const REPLACEMENT_BASE: Record<ActivityCategory, number> = {
 
 const HOURLY_VALUE = 10030; // 2025 최저시급
 
-function classifyActivity(text: string): { category: ActivityCategory; involvement: AIInvolvement; isHighCognitive: boolean } {
+// ── 1) 인간 고유 영역 (보라 / 대체율 0-10%) ──
+const HUMAN_ONLY_KEYWORDS = /식사|밥|산책|운동|요가|수면|잠|목욕|샤워|대화|농구|축구|육아|명상|휴식|낮잠|스트레칭|조깅|등산|자전거|필라테스|헬스|수영|독서|일기|저녁|아침|점심|간식|커피|차|티타임|친구|가족|놀이/;
+
+// ── 2) AI 잠식/위험 (빨강·주황 / 위험도 80-100%) ──
+const AI_EROSION_KEYWORDS = /유튜브|쇼츠|숏폼|인스타그램|인스타|틱톡|넷플릭스|웹서핑|sns|스크롤|트위터|페이스북|레딧|웹툰|게임|릴스|핀터레스트|쿠팡|쇼핑|알고리즘/;
+
+// ── 3) AI 증강/획득 (파랑·초록 / 대체율 50-90%) ──
+const AI_AUGMENT_KEYWORDS = /보고서|코딩|개발|이메일|메일|리서치|자료\s?정리|번역|기획안|작성|ppt|엑셀|문서|회의록|발표|정리|데이터|분석|프로그래밍|설계|디자인|검색|공부|학습|강의|논문|조사|전략|컨셉|브레인스토밍|아이디어|창작|글쓰기/;
+
+function classifyActivity(text: string): { category: ActivityCategory; involvement: AIInvolvement; isHighCognitive: boolean; forcedReplacementScore?: number } {
   const t = text.toLowerCase();
-  if (/공부|학습|강의|책|리서치|검색|뉴스|논문|읽|조사/.test(t))
-    return { category: '정보학습', involvement: 'active', isHighCognitive: true };
-  if (/보고서|이메일|문서|작성|발표|ppt|엑셀|회의록|정리|메일/.test(t))
+
+  // Priority 1: 인간 고유 — involvement=none, 대체율 5%
+  if (HUMAN_ONLY_KEYWORDS.test(t))
+    return { category: '일상', involvement: 'none', isHighCognitive: false, forcedReplacementScore: 5 };
+
+  // Priority 2: AI 잠식 — involvement=passive, stolen_time (대체율 90%)
+  if (AI_EROSION_KEYWORDS.test(t))
+    return { category: '일상', involvement: 'passive', isHighCognitive: false, forcedReplacementScore: 90 };
+
+  // Priority 3: AI 증강/획득 — involvement=active
+  if (AI_AUGMENT_KEYWORDS.test(t)) {
+    // Sub-classify
+    if (/코딩|개발|프로그래밍|설계|디자인|분석|데이터/.test(t))
+      return { category: '전문기술', involvement: 'active', isHighCognitive: true };
+    if (/기획|아이디어|브레인스토밍|전략|컨셉|창작|글쓰기/.test(t))
+      return { category: '창의기획', involvement: 'active', isHighCognitive: true };
+    if (/공부|학습|강의|논문|조사|리서치|검색/.test(t))
+      return { category: '정보학습', involvement: 'active', isHighCognitive: true };
     return { category: '문서사무', involvement: 'active', isHighCognitive: false };
-  if (/코딩|개발|디자인|분석|데이터|프로그래밍|설계/.test(t))
-    return { category: '전문기술', involvement: 'active', isHighCognitive: true };
-  if (/기획|아이디어|브레인스토밍|전략|컨셉|창작|글쓰기/.test(t))
-    return { category: '창의기획', involvement: 'active', isHighCognitive: true };
-  if (/sns|유튜브|넷플릭스|틱톡|인스타|스크롤|숏폼/.test(t))
-    return { category: '일상', involvement: 'passive', isHighCognitive: false };
-  return { category: '일상', involvement: 'none', isHighCognitive: false };
+  }
+
+  // Fallback: 인간 고유
+  return { category: '일상', involvement: 'none', isHighCognitive: false, forcedReplacementScore: 5 };
 }
 
 function getReplacementLevel(score: number): ReplacementLevel {
