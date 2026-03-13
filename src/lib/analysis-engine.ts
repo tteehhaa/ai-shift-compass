@@ -184,13 +184,13 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const sumPassive = activities.filter(a => a.ai_involvement === 'passive').reduce((s, a) => s + a.original_duration_hr, 0);
   const shiftIndex = Math.min(Math.round(((sumSavedQ + sumPassive) / totalHr) * 100), 100);
 
-  const humanPercent = Math.round((humanHr / totalHr) * 100);
+  const humanPercent = Math.round((timeReport.humanHr / totalHr) * 100);
 
   // Economic value: (획득 + 증강 + 대체위험 시간) × 10,030원
-  const criticalHr = Math.round(activities
+  const criticalHr = activities
     .filter(a => a.replacement_level === 'critical' || a.replacement_level === 'high')
-    .reduce((s, a) => s + a.original_duration_hr, 0));
-  const totalAutomatableHr = gainHr + augmentHr + criticalHr;
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  const totalAutomatableHr = timeReport.gainHr + timeReport.augmentHr + Math.round(criticalHr);
   const economicDaily = Math.round(totalAutomatableHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
