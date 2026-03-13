@@ -316,10 +316,10 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
               formatter={(n) => n.toLocaleString()}
             />
           </div>
-          {movies > 0 && (
+          {mcdonalds > 0 && (
             <div className="flex items-center gap-1.5 justify-end mb-4">
-              <Clapperboard className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">영화 {movies}편 관람</span>
+              <span className="text-lg">🍟</span>
+              <span className="text-xs text-muted-foreground">맥도날드 지수 {mcdonalds}세트</span>
             </div>
           )}
 
