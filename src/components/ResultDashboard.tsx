@@ -372,11 +372,6 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
             <div className="rounded-2xl p-4 bg-white/60 border border-destructive/10 mt-3">
               <div className="flex items-start gap-2">
-                {/* 수정됨: 아이콘 변경 */}
-                <div className="flex gap-1 mt-0.5">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-                </div>
                 <p className="text-sm text-foreground leading-relaxed">
                   {/* 수정됨: 텍스트 변경 */}
                   ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 단순 작업에 매달리고
