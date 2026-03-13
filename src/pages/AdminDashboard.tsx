@@ -253,9 +253,8 @@ export default function AdminDashboard() {
                     <p className="text-[11px] text-muted-foreground">{item.category} · {item.replacement_level}</p>
                   </div>
                   <span className="text-sm font-bold text-foreground">{item.count}회</span>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                    {item.replacement_score}%
-                  </span>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.replacement_score}%</span>
+                  <button onClick={() => handleDeleteRanking(item.activity_name)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               ))}
               {rankings.length === 0 && (
