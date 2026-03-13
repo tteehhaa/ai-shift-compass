@@ -28,18 +28,18 @@ interface AugmentRule extends KeywordRule {
 
 // 1) 인간 고유 영역 (🟣 / involvement=none 고정)
 const HUMAN_RULES: KeywordRule[] = [
-  { keywords: ['식사', '밥', '아침', '점심', '저녁', '간식', '야식', '수면', '잠', '낮잠', '목욕', '샤워'], score: 3 },
-  { keywords: ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영'], score: 6 },
-  { keywords: ['대화', '수다', '통화', '전화', '만남', '육아', '돌봄', '가족', '친구'], score: 5 },
-  { keywords: ['명상', '휴식', '기도', '그림', '독서', '책', '일기', '음악감상'], score: 7 },
+  { keywords: ['식사', '밥', '아침', '점심', '저녁', '간식', '야식', '수면', '잠', '낮잠', '목욕', '샤워'], score: 1 },
+  { keywords: ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영'], score: 2 },
+  { keywords: ['대화', '수다', '통화', '전화', '만남', '육아', '돌봄', '가족', '친구'], score: 2 },
+  { keywords: ['명상', '휴식', '기도', '그림', '독서', '책', '일기', '음악감상'], score: 3 },
 ];
 
 // 2) AI 잠식/위험 (🔴/🟠 / involvement=passive 고정)
 const EROSION_RULES: KeywordRule[] = [
-  { keywords: ['쇼츠', '숏폼', '릴스', '틱톡', 'shorts', 'tiktok'], score: 84 },
-  { keywords: ['유튜브', 'youtube', '인스타그램', '인스타', 'instagram', '틱톡', 'threads', '스레드'], score: 80 },
-  { keywords: ['웹서핑', '눈팅', '커뮤니티', '스크롤', '피드', '알고리즘', '추천콘텐츠', '자동재생'], score: 82 },
-  { keywords: ['단순게임', '모바일게임', '시간때우기'], score: 78 },
+  { keywords: ['쇼츠', '숏폼', '릴스', '틱톡', 'shorts', 'tiktok', '무한스크롤'], score: 94 },
+  { keywords: ['유튜브', 'youtube', '인스타그램', '인스타', 'instagram', 'sns', 'threads', '스레드'], score: 92 },
+  { keywords: ['웹서핑', '눈팅', '커뮤니티', '스크롤', '피드', '알고리즘', '추천콘텐츠', '자동재생', '멍때리기'], score: 93 },
+  { keywords: ['단순게임', '모바일게임', '시간때우기', '도파민'], score: 91 },
 ];
 
 // 3) AI 증강/획득 (🔵/🟢/🟡 / involvement=active 고정)
@@ -48,32 +48,32 @@ const AUGMENT_RULES: AugmentRule[] = [
     keywords: ['코딩', '개발', '프로그래밍', '설계', 'api', '서버', '디버깅', '리팩토링'],
     category: '전문기술',
     isHighCognitive: true,
-    score: 52,
-    minScore: 48,
-    maxScore: 60,
+    score: 48,
+    minScore: 42,
+    maxScore: 62,
   },
   {
     keywords: ['보고서', '리포트', '이메일', '메일', '번역', '자료정리', '문서작성', '회의록'],
     category: '문서사무',
     isHighCognitive: false,
     score: 40,
-    minScore: 34,
-    maxScore: 48,
+    minScore: 32,
+    maxScore: 50,
   },
   {
     keywords: ['리서치', '연구', '공부', '학습', '조사', '검색', '논문', '강의'],
     category: '정보학습',
     isHighCognitive: true,
-    score: 46,
-    minScore: 38,
-    maxScore: 54,
+    score: 44,
+    minScore: 36,
+    maxScore: 56,
   },
   {
     keywords: ['기획', '기획안', '아이디어', '브레인스토밍', '콘텐츠기획', '글쓰기', '포스팅'],
     category: '창의기획',
     isHighCognitive: true,
-    score: 50,
-    minScore: 42,
+    score: 46,
+    minScore: 38,
     maxScore: 58,
   },
 ];
