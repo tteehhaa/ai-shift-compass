@@ -4,7 +4,6 @@ import type { AnalysisResult } from "@/lib/types";
 import { X, Download, Loader2, Check, Link2, MessageSquare } from "lucide-react";
 import { REPLACEMENT_COLORS } from "@/lib/analysis-engine";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 const SERVICE_URL = "ai-shift-compass.lovable.app";
 
@@ -22,23 +21,19 @@ function useIsMobile() {
   return mobile;
 }
 
-// ── DB에 결과 저장 후 짧은 URL 반환 ──
-const saveAndGetShareUrl = async (result: AnalysisResult, mbti: string): Promise<string | null> => {
-  const { data, error } = await supabase
-    .from("shared_results")
-    .insert({ mbti, result_data: result as any })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    console.error("Failed to save result:", error);
-    return null;
+// ── URL Encoding Helper ──
+const encodeResultToUrl = (result: AnalysisResult, mbti: string): string => {
+  try {
+    const dataString = JSON.stringify({ result, mbti });
+    const encoded = btoa(encodeURIComponent(dataString));
+    return `https://${SERVICE_URL}/result?data=${encoded}`;
+  } catch (error) {
+    console.error("Failed to encode result:", error);
+    return `https://${SERVICE_URL}`;
   }
-
-  return `https://${SERVICE_URL}/result/${data.id}`;
 };
 
-// ── Platform Icons (inline SVG for reliability) ──
+// ── Platform Icons ──
 function InstagramIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -224,28 +219,14 @@ function fallbackCopyText(text: string): boolean {
 export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [savingLink, setSavingLink] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // DB에 저장하고 공유 URL을 캐싱
-  const ensureShareUrl = async (): Promise<string | null> => {
-    if (shareUrl) return shareUrl;
-    setSavingLink(true);
-    const url = await saveAndGetShareUrl(result, mbti);
-    setSavingLink(false);
-    if (url) {
-      setShareUrl(url);
-      return url;
-    }
-    toast.error("링크 생성에 실패했습니다. 다시 시도해주세요.");
-    return null;
-  };
+  const myResultUrl = encodeResultToUrl(result, mbti);
 
-  const getShareText = (url: string) => {
+  const getShareText = () => {
     const base = `나의 AI 시프트 지수는 ${result.shiftIndex}%! 나는 ${mbti === "UNKNOWN" ? "" : mbti + ": "}${result.persona}. ${result.oneLinerSummary}`;
-    return `${base}\n\n👉 나의 결과 확인 및 테스트하기:\n${url}`;
+    return `${base}\n\n👉 나의 결과 확인 및 테스트하기:\n${myResultUrl}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
@@ -267,7 +248,37 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     URL.revokeObjectURL(url);
   };
 
-  // ── Download + toast ──
+  // ⭐️ [가장 핵심] 스마트폰 기본 공유창 띄우기 함수
+  const shareViaNativeOS = async (platformName: string) => {
+    setCapturing(true);
+    const blob = await captureCard();
+    setCapturing(false);
+
+    if (!blob) {
+      toast.error("이미지 생성에 실패했습니다.");
+      return;
+    }
+
+    if (isMobile && navigator.canShare && navigator.share) {
+      const file = new File([blob], "ai-shift-result.png", { type: "image/png" });
+      const shareData = {
+        files: [file],
+      };
+
+      if (navigator.canShare(shareData)) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          console.log("Native share cancelled or failed", error);
+        }
+      }
+    }
+
+    downloadBlob(blob);
+    toast.success(`이미지가 저장되었습니다! ${platformName} 앱을 직접 열고 업로드해주세요.`);
+  };
+
   const handleDownloadAndToast = async () => {
     setCapturing(true);
     const blob = await captureCard();
@@ -280,11 +291,8 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     toast.success("이미지가 저장되었습니다. 원하는 앱에서 업로드하세요!");
   };
 
-  // ── Link copy with fallback ──
   const handleCopyLink = async () => {
-    const url = await ensureShareUrl();
-    if (!url) return;
-    const text = getShareText(url);
+    const text = getShareText();
     let ok = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -301,60 +309,22 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     }
   };
 
-  // ── Instagram: download + deep link ──
-  const handleInstagram = async () => {
-    setCapturing(true);
-    const blob = await captureCard();
-    setCapturing(false);
-    if (!blob) {
-      toast.error("이미지 생성에 실패했습니다.");
-      return;
-    }
-    downloadBlob(blob);
-    toast.success("이미지가 저장되었습니다! 인스타그램에서 업로드하세요.");
-    if (isMobile) {
-      setTimeout(() => {
-        window.location.href = "instagram://app";
-      }, 500);
-    }
-  };
+  // ⭐️ [수정된 부분] 인스타, 쓰레드 클릭 시 shareViaNativeOS 호출
+  const handleInstagram = () => shareViaNativeOS("인스타그램");
+  const handleThreads = () => shareViaNativeOS("쓰레드");
 
-  // ── Threads: download + deep link ──
-  const handleThreads = async () => {
-    setCapturing(true);
-    const blob = await captureCard();
-    setCapturing(false);
-    if (!blob) {
-      toast.error("이미지 생성에 실패했습니다.");
-      return;
-    }
-    downloadBlob(blob);
-    toast.success("이미지가 저장되었습니다! 쓰레드에서 업로드하세요.");
-    if (isMobile) {
-      setTimeout(() => {
-        window.location.href = "barcelona://app";
-      }, 500);
-    }
-  };
-
-  // ── Naver Blog ──
-  const handleNaverBlog = async () => {
-    const url = await ensureShareUrl();
-    if (!url) return;
+  const handleNaverBlog = () => {
     const title = encodeURIComponent(`나의 AI 시프트 지수: ${result.shiftIndex}% - ${result.persona}`);
-    const encodedUrl = encodeURIComponent(url);
-    window.open(`https://blog.naver.com/openapi/share?url=${encodedUrl}&title=${title}`, "_blank", "width=600,height=500");
+    const url = encodeURIComponent(myResultUrl);
+    window.open(`https://blog.naver.com/openapi/share?url=${url}&title=${title}`, "_blank", "width=600,height=500");
   };
 
-  // ── KakaoTalk: Web Share API or fallback ──
   const handleKakao = async () => {
-    const url = await ensureShareUrl();
-    if (!url) return;
     if (isMobile && navigator.share) {
       const blob = await captureCard();
       if (blob) {
         const file = new File([blob], "ai-shift-result.png", { type: "image/png" });
-        const shareData: ShareData = { title: "AI Life Shift 진단 결과", text: getShareText(url), files: [file] };
+        const shareData: ShareData = { title: "AI Life Shift 진단 결과", text: getShareText(), files: [file] };
         if (navigator.canShare?.(shareData)) {
           try {
             await navigator.share(shareData);
@@ -365,29 +335,21 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
         }
       }
     }
-    // Fallback: copy link
     await handleCopyLink();
     toast.info("카카오톡에 붙여넣기(Ctrl+V) 해주세요!");
   };
 
-  // ── SMS ──
-  const handleSMS = async () => {
-    const url = await ensureShareUrl();
-    if (!url) return;
-    const text = encodeURIComponent(getShareText(url));
+  const handleSMS = () => {
+    const text = encodeURIComponent(getShareText());
     const separator = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "&" : "?";
     window.location.href = `sms:${separator}body=${text}`;
   };
 
-  // ── X (Twitter) ──
-  const handleX = async () => {
-    const url = await ensureShareUrl();
-    if (!url) return;
-    const text = encodeURIComponent(getShareText(url));
+  const handleX = () => {
+    const text = encodeURIComponent(getShareText());
     window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
   };
 
-  // Platform button data
   const platforms = [
     { id: "instagram", label: "인스타그램", icon: InstagramIcon, handler: handleInstagram, color: "#E4405F" },
     { id: "threads", label: "쓰레드", icon: ThreadsIcon, handler: handleThreads, color: "#000000" },
@@ -399,7 +361,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
       <div className="w-full max-w-lg bg-card rounded-t-3xl sm:rounded-3xl border border-border/50 shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="sticky top-0 bg-card/95 backdrop-blur-sm rounded-t-3xl px-6 pt-5 pb-3 flex items-center justify-between border-b border-border/30 z-10">
           <h3 className="text-base font-semibold text-foreground">결과 공유하기</h3>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-secondary transition-colors">
@@ -408,19 +369,17 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
         </div>
 
         <div className="p-6">
-          {/* Card Preview */}
           <div ref={cardRef}>
             <ShareCard result={result} mbti={mbti} />
           </div>
 
-          {(capturing || savingLink) && (
+          {capturing && (
             <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {savingLink ? "링크 생성 중..." : "공유 이미지를 생성 중입니다..."}
+              공유 이미지를 생성 중입니다...
             </div>
           )}
 
-          {/* Platform Buttons */}
           <div className="mt-5">
             <p className="text-xs text-muted-foreground text-center mb-3">공유할 플랫폼을 선택하세요</p>
             <div className="grid grid-cols-5 gap-2">
@@ -428,7 +387,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
                 <button
                   key={id}
                   onClick={handler}
-                  disabled={capturing || savingLink}
+                  disabled={capturing}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-secondary/80 transition-all disabled:opacity-50 group"
                 >
                   <div
@@ -443,11 +402,10 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </div>
           </div>
 
-          {/* Utility row */}
           <div className="mt-4 flex gap-2">
             <button
               onClick={handleDownloadAndToast}
-              disabled={capturing || savingLink}
+              disabled={capturing}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
@@ -455,15 +413,13 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </button>
             <button
               onClick={handleCopyLink}
-              disabled={savingLink}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors"
             >
-              {savingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-              {savingLink ? "링크 생성 중..." : copied ? "복사됨!" : "링크 복사"}
+              {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              {copied ? "복사됨!" : "링크 복사"}
             </button>
           </div>
 
-          {/* PC: extra X button */}
           {!isMobile && (
             <div className="mt-2">
               <button
