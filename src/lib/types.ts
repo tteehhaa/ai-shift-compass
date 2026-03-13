@@ -8,21 +8,30 @@ export type ReplacementLevel = 'critical' | 'high' | 'medium' | 'low' | 'safe';
 export interface RoutineEntry {
   time: string;
   activity: string;
-  duration: number;
+  duration: number; // in hours
 }
 
 export interface AnalyzedActivity {
   activity: string;
   time: string;
-  original_duration_min: number;
+  original_duration_hr: number;
   ai_involvement: AIInvolvement;
   category: ActivityCategory;
   is_high_cognitive: boolean;
   compression_ratio: number;
-  saved_time_min: number;
-  agency_adjusted_min: number;
+  saved_time_hr: number;
+  agency_adjusted_hr: number;
   replacement_score: number; // 0-100
   replacement_level: ReplacementLevel;
+}
+
+export interface TimeReport {
+  totalHr: number;        // 총 입력 시간
+  gainHr: number;         // 획득 시간 (Blue)
+  erosionHr: number;      // 잠식 시간 (Red)
+  augmentHr: number;      // 증강 시간 (Green)
+  mixedHr: number;        // 혼재 시간 (Yellow)
+  humanHr: number;        // 고유 시간 (Purple)
 }
 
 export interface AnalysisResult {
@@ -32,11 +41,7 @@ export interface AnalysisResult {
   personaDescription: string;
   personaTitle: string;
   activities: AnalyzedActivity[];
-  totalOriginalMin: number;
-  totalSavedMin: number;
-  totalErosionMin: number;
-  totalGainMin: number;
-  humanTimeMin: number;
+  timeReport: TimeReport;
   humanTimePercent: number;
   economicValueDaily: number;
   economicValueMonthly: number;

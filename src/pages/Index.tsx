@@ -9,12 +9,12 @@ import { analyzeRoutines } from '@/lib/analysis-engine';
 import type { RoutineEntry, AnalysisResult } from '@/lib/types';
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
-  { time: '08:00', activity: '이메일 확인 및 답장', duration: 30 },
-  { time: '09:00', activity: 'AI로 리서치 자료 정리', duration: 90 },
-  { time: '11:00', activity: '보고서 작성', duration: 60 },
-  { time: '13:00', activity: '점심 식사 및 산책', duration: 60 },
-  { time: '14:00', activity: '코딩 및 개발 작업', duration: 120 },
-  { time: '17:00', activity: '유튜브 시청', duration: 60 },
+  { time: '08:00', activity: '이메일 확인 및 답장', duration: 1 },
+  { time: '09:00', activity: 'AI로 리서치 자료 정리', duration: 2 },
+  { time: '11:00', activity: '보고서 작성', duration: 1 },
+  { time: '13:00', activity: '점심 식사 및 산책', duration: 1 },
+  { time: '14:00', activity: '코딩 및 개발 작업', duration: 3 },
+  { time: '17:00', activity: '유튜브 시청', duration: 1 },
 ];
 
 type Step = 'input' | 'analyzing' | 'result';
@@ -47,7 +47,6 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border/50">
         <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
           <div>
@@ -72,28 +71,28 @@ export default function Index() {
             {/* Hero */}
             <div className="text-center space-y-3 pt-4">
               <h2 className="text-2xl font-bold text-foreground tracking-tight">
-                어제의 일상을 입력하세요
+                평범한 나의 일상을 입력하세요
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
                 시간대별 활동을 기록하면, AI가 당신의 삶을 얼마나 대체할 수 있는지 진단합니다.
               </p>
             </div>
 
-            {/* MBTI */}
+            {/* Routine Input — moved to top */}
+            <section>
+              <h3 className="text-sm font-semibold text-foreground mb-3">평범한 나의 일상 (시간대별 활동)</h3>
+              <RoutineInput routines={routines} onChange={setRoutines} />
+            </section>
+
+            {/* MBTI — moved below */}
             <section>
               <h3 className="text-sm font-semibold text-foreground mb-3">MBTI 선택</h3>
               <MBTIGrid selected={mbti} onSelect={setMbti} />
               {mbti && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  선택됨: <span className="font-semibold text-foreground">{mbti}</span>
+                  선택됨: <span className="font-semibold text-foreground">{mbti === 'UNKNOWN' ? 'MBTI 모름' : mbti}</span>
                 </p>
               )}
-            </section>
-
-            {/* Routine Input */}
-            <section>
-              <h3 className="text-sm font-semibold text-foreground mb-3">어제의 일상 (시간대별 활동)</h3>
-              <RoutineInput routines={routines} onChange={setRoutines} />
             </section>
 
             {/* CTA */}
@@ -117,7 +116,6 @@ export default function Index() {
         )}
       </main>
 
-      {/* Share Modal */}
       {showShare && result && (
         <ShareCards result={result} mbti={mbti} onClose={() => setShowShare(false)} />
       )}
