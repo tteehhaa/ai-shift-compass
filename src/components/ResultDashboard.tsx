@@ -463,20 +463,14 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* Share CTA Card */}
-      <div className="glass-card rounded-3xl p-8 text-center">
-        <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-4">
-          Share
-        </p>
-        <h3 className="text-base font-semibold text-foreground mb-6">결과 공유하기</h3>
-        <button
-          onClick={onShowShare}
-          className="w-full rounded-2xl bg-[#E85D22] text-white py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:bg-[#E85D22]/90 active:scale-[0.97]"
-        >
-          <Share2 className="w-4 h-4" />
-          공유하기
-        </button>
-      </div>
+      {/* Share CTA */}
+      <button
+        onClick={onShowShare}
+        className="w-full rounded-2xl border border-[#E85D22] text-[#E85D22] py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:bg-[#E85D22] hover:text-white active:scale-[0.97]"
+      >
+        <Share2 className="w-4 h-4" />
+        결과 공유하기
+      </button>
 
       {/* Community Ranking */}
       <CommunityRanking activities={result.activities} />
