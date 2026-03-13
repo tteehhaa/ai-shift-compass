@@ -119,52 +119,58 @@ function classifyActivity(text: string): ClassificationResult {
   const erosionMatch = pickBestRule(normalized, EROSION_RULES);
   const augmentMatch = pickBestAugmentRule(normalized);
 
-  const groupHitMap: Record<SemanticGroup, number> = {
-    erosion: erosionMatch.hitCount,
-    augment: augmentMatch.hitCount,
-    human: humanMatch.hitCount,
-  };
+  // 1순위: 신체/생리/대면 활동은 항상 인간 고유 영역으로 강제
+  if (humanMatch.hitCount > 0) {
+    const physicalBonusHits = countKeywordHits(normalized, ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영']);
+    const replacementScore = Math.min(5, Math.max(0, humanMatch.score + Math.max(0, humanMatch.hitCount - 1) - (physicalBonusHits > 0 ? 1 : 0)));
 
-  const maxHit = Math.max(groupHitMap.erosion, groupHitMap.augment, groupHitMap.human);
-  if (maxHit === 0) {
-    return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: 5 };
-  }
-
-  // tie-break priority: erosion > augment > human
-  const group: SemanticGroup = (['erosion', 'augment', 'human'] as const).find((g) => groupHitMap[g] === maxHit) ?? 'human';
-
-  if (group === 'human') {
     return {
       group: 'human',
       category: '일상',
       involvement: 'none',
       isHighCognitive: false,
-      replacementScore: Math.min(10, Math.max(1, humanMatch.score || 5)),
+      replacementScore,
     };
   }
 
-  if (group === 'erosion') {
+  // 2순위: 수동 소비형 디지털 활동은 잠식(=Stolen Time)으로 강제
+  if (erosionMatch.hitCount > 0) {
+    const intensityHits = countKeywordHits(normalized, ['쇼츠', '숏폼', '릴스', '무한스크롤', '도파민', '알고리즘', '자동재생']);
+    const replacementScore = Math.min(100, Math.max(90, erosionMatch.score + Math.max(0, erosionMatch.hitCount - 1) * 2 + intensityHits));
+
     return {
       group: 'erosion',
       category: '일상',
       involvement: 'passive',
       isHighCognitive: false,
-      replacementScore: Math.min(84, Math.max(70, erosionMatch.score || 80)),
+      replacementScore,
     };
   }
 
-  const rule = augmentMatch.rule ?? AUGMENT_RULES[0];
-  const dynamicScore = Math.min(
-    rule.maxScore,
-    Math.max(rule.minScore, rule.score + Math.max(0, augmentMatch.hitCount - 1) * 3),
-  );
+  // 3순위: 생산형 디지털 활동은 증강/획득으로 분류
+  if (augmentMatch.hitCount > 0) {
+    const rule = augmentMatch.rule ?? AUGMENT_RULES[0];
+    const productivityHints = countKeywordHits(normalized, ['작성', '정리', '분석', '개발', '설계', '학습', '연구', '기획', '번역', '디버깅']);
+    const dynamicScore = Math.min(
+      rule.maxScore,
+      Math.max(rule.minScore, rule.score + Math.max(0, augmentMatch.hitCount - 1) * 3 + Math.min(productivityHints, 2) * 2),
+    );
+
+    return {
+      group: 'augment',
+      category: rule.category,
+      involvement: 'active',
+      isHighCognitive: rule.isHighCognitive,
+      replacementScore: dynamicScore,
+    };
+  }
 
   return {
-    group: 'augment',
-    category: rule.category,
-    involvement: 'active',
-    isHighCognitive: rule.isHighCognitive,
-    replacementScore: dynamicScore,
+    group: 'human',
+    category: '일상',
+    involvement: 'none',
+    isHighCognitive: false,
+    replacementScore: 5,
   };
 }
 
