@@ -237,24 +237,37 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           경제적 가치
         </h3>
         <p className="text-[11px] text-muted-foreground mb-1 leading-relaxed">
-          (획득 시간 + 증강 시간 + 대체 위험 시간) × 10,030원(2025년 최저시급)
+          (획득 시간 + 증강 시간) × 10,030원(2025년 최저시급)
         </p>
         <p className="text-[10px] text-muted-foreground/70 mb-4 leading-relaxed">
-          ⚡ <strong>대체 위험 시간을 획득 시간으로 전환</strong>할 때의 잠재적 최소 가치입니다.
+          ⚡ AI 활용으로 <strong>실제 창출한 생산적 시간 가치</strong>입니다. 잠식 시간은 손실로 별도 표기됩니다.
         </p>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">일간 가치</span>
-            <span className="text-lg font-bold text-foreground">{result.economicValueDaily.toLocaleString()}원</span>
+            <span className="text-sm text-muted-foreground">일간 창출 가치</span>
+            <span className="text-lg font-bold" style={{ color: TIME_CATEGORY_COLORS.gain }}>{result.economicValueDaily.toLocaleString()}원</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">월간 환산</span>
             <span className="text-base font-semibold text-muted-foreground">{result.economicValueMonthly.toLocaleString()}원</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">연간 환산 수익률</span>
+            <span className="text-sm text-muted-foreground">연간 환산</span>
             <span className="text-base font-semibold" style={{ color: TIME_CATEGORY_COLORS.gain }}>{result.economicValueYearly.toLocaleString()}원</span>
           </div>
+          {result.timeReport.erosionHr > 0 && (
+            <div className="mt-2 pt-3 border-t border-border/30">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">일간 잠식 손실</span>
+                <span className="text-base font-semibold" style={{ color: TIME_CATEGORY_COLORS.erosion }}>
+                  -{(result.timeReport.erosionHr * 10030).toLocaleString()}원
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                알고리즘에 빼앗긴 {result.timeReport.erosionHr}시간의 기회비용
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
