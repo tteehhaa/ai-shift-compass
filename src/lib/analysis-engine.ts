@@ -1,5 +1,122 @@
 import type { AnalyzedActivity, AnalysisResult, ActivityCategory, AIInvolvement, ReplacementLevel, RoutineEntry, TimeReport } from './types';
 
+// ═══════════════════════════════════════════════════════════════
+// Semantic Classifier — 3-tier activity classification
+// ═══════════════════════════════════════════════════════════════
+
+type SemanticGroup = 'human' | 'erosion' | 'augment';
+
+interface ClassificationResult {
+  group: SemanticGroup;
+  category: ActivityCategory;
+  involvement: AIInvolvement;
+  isHighCognitive: boolean;
+  /** 범위 내 유연 대체율 */
+  replacementScore: number;
+}
+
+// ── 1) 인간 고유 영역 (🟣 보라 / 0~10%) ──
+// 생리적 현상, 신체 활동, 대면 소통, 예술·명상 전체
+const HUMAN_PATTERNS: { regex: RegExp; score: number }[] = [
+  // 생리적: 0~3%
+  { regex: /식사|밥|먹|아침\s?식사|점심\s?식사|저녁\s?식사|간식|야식|수면|잠|낮잠|잠들|기상|일어나|세수|양치|샤워|목욕|화장실/, score: 2 },
+  // 신체 활동: 3~8%
+  { regex: /산책|조깅|달리기|러닝|운동|헬스|웨이트|필라테스|요가|스트레칭|등산|하이킹|자전거|수영|농구|축구|배드민턴|탁구|테니스|골프|클라이밍|댄스|춤/, score: 5 },
+  // 대면 소통: 2~6%
+  { regex: /대화|수다|잡담|통화|전화|만남|모임|회식|데이트|육아|돌봄|아이|아기|가족|친구|동료|면담/, score: 4 },
+  // 예술·명상·휴식: 3~8%
+  { regex: /명상|기도|묵상|휴식|쉬|낮잠|그림|그리기|악기|피아노|기타|노래|음악\s?감상|독서|읽기|책|일기|저널|손글씨|뜨개질|요리|베이킹|정원|화분|반려|산림욕/, score: 6 },
+  // 일반 생활: 5%
+  { regex: /커피|차|티타임|카페|놀이|산보|드라이브|여행|관광|공원/, score: 5 },
+];
+
+// ── 2) AI 잠식/위험 (🔴 빨강·주황 / 80~100%) ──
+// 알고리즘 기반 수동적 미디어 소비, 시간 때우기용 디지털 활동
+const EROSION_PATTERNS: { regex: RegExp; score: number }[] = [
+  // 숏폼/추천 알고리즘 콘텐츠: 90~100%
+  { regex: /쇼츠|숏폼|릴스|틱톡|shorts/, score: 95 },
+  // 장시간 스트리밍: 85~95%
+  { regex: /유튜브|youtube|넷플릭스|netflix|왓챠|디즈니\+?|웨이브|티빙/, score: 88 },
+  // SNS 피드: 85~95%
+  { regex: /인스타그램|인스타|instagram|페이스북|facebook|트위터|twitter|x\.com|스레드|threads/, score: 90 },
+  // 커뮤니티 눈팅: 80~90%
+  { regex: /레딧|reddit|디시|디씨|루리웹|에펨코리아|더쿠|뽐뿌|클리앙|눈팅|커뮤니티/, score: 83 },
+  // 웹서핑/스크롤: 80~88%
+  { regex: /웹서핑|스크롤|멍하니|sns|소셜|피드/, score: 82 },
+  // 모바일 게임/캐주얼: 80~85%
+  { regex: /게임|겜|롤|lol|배그|모바일\s?게임|가챠/, score: 82 },
+  // 온라인 쇼핑(충동): 80~85%
+  { regex: /쿠팡|쇼핑|네이버\s?쇼핑|장바구니|윈도우\s?쇼핑|알리|테무/, score: 80 },
+  // 웹툰: 82~88%
+  { regex: /웹툰|웹소설|만화/, score: 85 },
+  // 알고리즘 추천: 90%
+  { regex: /알고리즘|추천\s?영상|자동\s?재생|autoplay/, score: 92 },
+];
+
+// ── 3) AI 증강/획득 (🔵 파랑·초록 / 50~90%) ──
+// 디지털 도구 기반 생산적 업무·학습·연구
+interface AugmentPattern {
+  regex: RegExp;
+  category: ActivityCategory;
+  isHighCognitive: boolean;
+  score: number; // 기본 대체율
+}
+
+const AUGMENT_PATTERNS: AugmentPattern[] = [
+  // 전문기술 (60~75%)
+  { regex: /코딩|개발|프로그래밍|설계|소프트웨어|앱\s?개발|백엔드|프론트엔드|풀스택|api|서버/, category: '전문기술', isHighCognitive: true, score: 70 },
+  { regex: /데이터\s?분석|데이터\s?사이언스|머신러닝|딥러닝|통계|시각화|대시보드/, category: '전문기술', isHighCognitive: true, score: 65 },
+  { regex: /디자인|ui|ux|피그마|figma|포토샵|일러스트|캔바|canva/, category: '전문기술', isHighCognitive: true, score: 60 },
+  // 문서사무 (75~90%)
+  { regex: /보고서|리포트|문서|작성|ppt|파워포인트|프레젠테이션|슬라이드/, category: '문서사무', isHighCognitive: false, score: 85 },
+  { regex: /이메일|메일|email|답장|회신/, category: '문서사무', isHighCognitive: false, score: 88 },
+  { regex: /엑셀|스프레드시트|표\s?정리|수식|피벗/, category: '문서사무', isHighCognitive: false, score: 82 },
+  { regex: /회의록|미팅\s?노트|의사록|정리|요약/, category: '문서사무', isHighCognitive: false, score: 80 },
+  { regex: /번역|통역|영작|영어\s?작성/, category: '문서사무', isHighCognitive: false, score: 90 },
+  { regex: /발표\s?준비|발표\s?자료/, category: '문서사무', isHighCognitive: false, score: 78 },
+  // 정보학습 (65~80%)
+  { regex: /공부|학습|스터디|수업|강의|강좌|인강|온라인\s?강의/, category: '정보학습', isHighCognitive: true, score: 72 },
+  { regex: /리서치|연구|조사|검색|자료\s?조사|논문|학술/, category: '정보학습', isHighCognitive: true, score: 75 },
+  { regex: /자료\s?정리|노트\s?정리|메모\s?정리/, category: '정보학습', isHighCognitive: true, score: 70 },
+  { regex: /뉴스|시사|기사\s?읽/, category: '정보학습', isHighCognitive: true, score: 68 },
+  // 창의기획 (50~65%)
+  { regex: /기획|기획안|전략|컨셉|콘셉트|비즈니스\s?모델/, category: '창의기획', isHighCognitive: true, score: 55 },
+  { regex: /아이디어|브레인스토밍|마인드맵/, category: '창의기획', isHighCognitive: true, score: 50 },
+  { regex: /창작|글쓰기|블로그|포스팅|콘텐츠\s?제작|영상\s?편집|편집/, category: '창의기획', isHighCognitive: true, score: 58 },
+  { regex: /마케팅|광고|카피|홍보|sns\s?관리|콘텐츠\s?기획/, category: '창의기획', isHighCognitive: true, score: 62 },
+];
+
+// ── Semantic Classifier ──
+function classifyActivity(text: string): ClassificationResult {
+  const t = text.toLowerCase().trim();
+
+  // Priority 1: 인간 고유 영역
+  for (const pattern of HUMAN_PATTERNS) {
+    if (pattern.regex.test(t)) {
+      return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: pattern.score };
+    }
+  }
+
+  // Priority 2: AI 잠식/위험
+  for (const pattern of EROSION_PATTERNS) {
+    if (pattern.regex.test(t)) {
+      return { group: 'erosion', category: '일상', involvement: 'passive', isHighCognitive: false, replacementScore: pattern.score };
+    }
+  }
+
+  // Priority 3: AI 증강/획득
+  for (const pattern of AUGMENT_PATTERNS) {
+    if (pattern.regex.test(t)) {
+      return { group: 'augment', category: pattern.category, involvement: 'active', isHighCognitive: pattern.isHighCognitive, replacementScore: pattern.score };
+    }
+  }
+
+  // Fallback: 인간 고유 (분류 불가 → 안전하게 인간 영역)
+  return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: 5 };
+}
+
+// ═══════════════════════════════════════════════════════════════
+
 const COMPRESSION_RATES: Record<ActivityCategory, number> = {
   '정보학습': 6.0,
   '문서사무': 3.5,
@@ -8,57 +125,7 @@ const COMPRESSION_RATES: Record<ActivityCategory, number> = {
   '일상': 1.0,
 };
 
-const AGENCY_RATES: Record<string, number> = {
-  active: 1.0,
-  passive: 0.70,
-  none: 0.85,
-};
-
-const REPLACEMENT_BASE: Record<ActivityCategory, number> = {
-  '정보학습': 75,
-  '문서사무': 85,
-  '전문기술': 60,
-  '창의기획': 40,
-  '일상': 10,
-};
-
 const HOURLY_VALUE = 10030; // 2025 최저시급
-
-// ── 1) 인간 고유 영역 (보라 / 대체율 0-10%) ──
-const HUMAN_ONLY_KEYWORDS = /식사|밥|산책|운동|요가|수면|잠|목욕|샤워|대화|농구|축구|육아|명상|휴식|낮잠|스트레칭|조깅|등산|자전거|필라테스|헬스|수영|독서|일기|저녁|아침|점심|간식|커피|차|티타임|친구|가족|놀이/;
-
-// ── 2) AI 잠식/위험 (빨강·주황 / 위험도 80-100%) ──
-const AI_EROSION_KEYWORDS = /유튜브|쇼츠|숏폼|인스타그램|인스타|틱톡|넷플릭스|웹서핑|sns|스크롤|트위터|페이스북|레딧|웹툰|게임|릴스|핀터레스트|쿠팡|쇼핑|알고리즘/;
-
-// ── 3) AI 증강/획득 (파랑·초록 / 대체율 50-90%) ──
-const AI_AUGMENT_KEYWORDS = /보고서|코딩|개발|이메일|메일|리서치|자료\s?정리|번역|기획안|작성|ppt|엑셀|문서|회의록|발표|정리|데이터|분석|프로그래밍|설계|디자인|검색|공부|학습|강의|논문|조사|전략|컨셉|브레인스토밍|아이디어|창작|글쓰기/;
-
-function classifyActivity(text: string): { category: ActivityCategory; involvement: AIInvolvement; isHighCognitive: boolean; forcedReplacementScore?: number } {
-  const t = text.toLowerCase();
-
-  // Priority 1: 인간 고유 — involvement=none, 대체율 5%
-  if (HUMAN_ONLY_KEYWORDS.test(t))
-    return { category: '일상', involvement: 'none', isHighCognitive: false, forcedReplacementScore: 5 };
-
-  // Priority 2: AI 잠식 — involvement=passive, stolen_time (대체율 90%)
-  if (AI_EROSION_KEYWORDS.test(t))
-    return { category: '일상', involvement: 'passive', isHighCognitive: false, forcedReplacementScore: 90 };
-
-  // Priority 3: AI 증강/획득 — involvement=active
-  if (AI_AUGMENT_KEYWORDS.test(t)) {
-    // Sub-classify
-    if (/코딩|개발|프로그래밍|설계|디자인|분석|데이터/.test(t))
-      return { category: '전문기술', involvement: 'active', isHighCognitive: true };
-    if (/기획|아이디어|브레인스토밍|전략|컨셉|창작|글쓰기/.test(t))
-      return { category: '창의기획', involvement: 'active', isHighCognitive: true };
-    if (/공부|학습|강의|논문|조사|리서치|검색/.test(t))
-      return { category: '정보학습', involvement: 'active', isHighCognitive: true };
-    return { category: '문서사무', involvement: 'active', isHighCognitive: false };
-  }
-
-  // Fallback: 인간 고유
-  return { category: '일상', involvement: 'none', isHighCognitive: false, forcedReplacementScore: 5 };
-}
 
 function getReplacementLevel(score: number): ReplacementLevel {
   if (score >= 85) return 'critical';
@@ -101,71 +168,57 @@ function getPersonaInfo(mbti: string, activeRatio?: number) {
   return PERSONA_MAP[mbti] || UNKNOWN_PERSONAS[0];
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Main Analysis Engine
+// ═══════════════════════════════════════════════════════════════
+
 export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
   const activities: AnalyzedActivity[] = routines.map((r) => {
-    const { category, involvement, isHighCognitive, forcedReplacementScore } = classifyActivity(r.activity);
-    const C = COMPRESSION_RATES[category];
-    const A = AGENCY_RATES[involvement];
+    const cls = classifyActivity(r.activity);
+    const C = COMPRESSION_RATES[cls.category];
 
     let savedTime: number;
-    if (involvement === 'passive') {
-      // AI 잠식: stolen_time — 전체 시간이 빼앗긴 시간
-      savedTime = 0; // 획득 없음, 잠식만 있음
-    } else if (involvement === 'none') {
+    if (cls.group === 'erosion') {
+      // AI 잠식: stolen_time — 획득 없음, 시간을 빼앗김
+      savedTime = 0;
+    } else if (cls.group === 'human') {
       // 인간 고유: AI 개입 없음
       savedTime = 0;
     } else {
       // AI 증강/획득: 압축으로 절약
       savedTime = Math.min(r.duration * (1 - 1 / C), r.duration * 0.9);
     }
-    const agencyAdjusted = savedTime * A;
-
-    let repScore: number;
-    if (forcedReplacementScore !== undefined) {
-      repScore = forcedReplacementScore;
-    } else {
-      repScore = REPLACEMENT_BASE[category];
-      if (involvement === 'active') repScore += 10;
-      if (involvement === 'passive') repScore -= 5;
-      if (isHighCognitive) repScore -= 10;
-      repScore = Math.max(0, Math.min(100, repScore));
-    }
 
     return {
       activity: r.activity,
       time: r.time,
       original_duration_hr: r.duration,
-      ai_involvement: involvement,
-      category,
-      is_high_cognitive: isHighCognitive,
+      ai_involvement: cls.involvement,
+      category: cls.category,
+      is_high_cognitive: cls.isHighCognitive,
       compression_ratio: C,
       saved_time_hr: Math.round(savedTime),
-      agency_adjusted_hr: Math.round(agencyAdjusted),
-      replacement_score: repScore,
-      replacement_level: getReplacementLevel(repScore),
+      agency_adjusted_hr: Math.round(savedTime), // 1:1 (agency rate 제거 — 유연 대체율로 대체)
+      replacement_score: cls.replacementScore,
+      replacement_level: getReplacementLevel(cls.replacementScore),
     };
   });
 
   const totalHr = activities.reduce((s, a) => s + a.original_duration_hr, 0) || 1;
 
-  // 5-category time report — strictly from actual activity data sums
-  // 잠식 시간: passive(유튜브, SNS 등) 활동의 전체 시간
+  // ── 5-category time report (strictly from actual data sums) ──
   const erosionHr = activities
     .filter(a => a.ai_involvement === 'passive')
     .reduce((s, a) => s + a.original_duration_hr, 0);
-  // 인간 고유 시간: involvement=none 활동의 전체 시간
   const humanHr = activities
     .filter(a => a.ai_involvement === 'none')
     .reduce((s, a) => s + a.original_duration_hr, 0);
-  // 획득 시간: active 활동에서 AI로 절약된 시간
   const gainHr = activities
     .filter(a => a.ai_involvement === 'active')
     .reduce((s, a) => s + a.saved_time_hr, 0);
-  // 증강 시간: active 활동에서 AI와 협업한 실제 작업 시간 (원래 시간 - 절약 시간)
   const augmentHr = activities
     .filter(a => a.ai_involvement === 'active')
     .reduce((s, a) => s + (a.original_duration_hr - a.saved_time_hr), 0);
-  // 혼재 시간: 나머지 (보정값, 0 이상만)
   const mixedHr = Math.max(0, Math.round(totalHr - erosionHr - humanHr - gainHr - augmentHr));
 
   const timeReport: TimeReport = {
@@ -177,6 +230,7 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     humanHr: Math.round(humanHr),
   };
 
+  // Shift index
   const sumSavedQ = activities.reduce((s, a) => {
     const Q = a.is_high_cognitive ? 1.2 : 1.0;
     return s + a.saved_time_hr * Q;
@@ -186,14 +240,15 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const humanPercent = Math.round((timeReport.humanHr / totalHr) * 100);
 
-  // Economic value: (획득 + 증강 + 대체위험 시간) × 10,030원
-  const criticalHr = activities
-    .filter(a => a.replacement_level === 'critical' || a.replacement_level === 'high')
-    .reduce((s, a) => s + a.original_duration_hr, 0);
-  const totalAutomatableHr = timeReport.gainHr + timeReport.augmentHr + Math.round(criticalHr);
-  const economicDaily = Math.round(totalAutomatableHr * HOURLY_VALUE);
+  // Economic value: (획득 + 증강) × 10,030원
+  // ⚠️ 잠식 시간은 경제적 가치에서 제외 (stolen time = 마이너스)
+  const positiveHr = timeReport.gainHr + timeReport.augmentHr;
+  const economicDaily = Math.round(positiveHr * HOURLY_VALUE);
   const economicMonthly = economicDaily * 22;
   const economicYearly = economicDaily * 260;
+
+  // 잠식 손실 (참고 정보)
+  const erosionLossDaily = Math.round(timeReport.erosionHr * HOURLY_VALUE);
 
   const percentile = Math.max(1, Math.min(99, 100 - Math.round(shiftIndex * 0.8 + Math.random() * 10)));
 
