@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import MBTIGrid from "@/components/MBTIGrid";
 import RoutineInput from "@/components/RoutineInput";
@@ -25,6 +25,32 @@ export default function Index() {
   const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showShare, setShowShare] = useState(false);
+
+  // ⭐️ 핵심 로직: 공유 링크로 접속했을 때 데이터를 해독하여 화면에 띄워줍니다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dataParam = params.get("data");
+
+    if (dataParam) {
+      try {
+        // Base64 문자열을 원래의 객체로 복원합니다.
+        const decodedString = decodeURIComponent(atob(dataParam));
+        const parsedData = JSON.parse(decodedString);
+
+        if (parsedData && parsedData.result && parsedData.mbti) {
+          setResult(parsedData.result);
+          setMbti(parsedData.mbti);
+          setStep("result"); // 입력/분석 단계를 건너뛰고 바로 결과 화면으로 이동
+
+          // 브라우저 주소창에 남아있는 길고 지저분한 ?data=... 파라미터를 깔끔하게 지워줍니다. (UX 향상)
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      } catch (error) {
+        console.error("공유된 데이터를 읽는 데 실패했습니다:", error);
+        // 에러가 발생하면 자연스럽게 기본 입력 폼(step="input")이 보이게 둡니다.
+      }
+    }
+  }, []);
 
   const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim());
 
@@ -76,13 +102,13 @@ export default function Index() {
               </p>
             </div>
 
-            {/* Routine Input — moved to top */}
+            {/* Routine Input */}
             <section>
               <h3 className="text-sm font-semibold text-foreground mb-3">평범한 나의 일상 (시간대별 활동)</h3>
               <RoutineInput routines={routines} onChange={setRoutines} />
             </section>
 
-            {/* MBTI — moved below */}
+            {/* MBTI */}
             <section>
               <h3 className="text-sm font-semibold text-foreground mb-3">MBTI 선택</h3>
               <MBTIGrid selected={mbti} onSelect={setMbti} />
