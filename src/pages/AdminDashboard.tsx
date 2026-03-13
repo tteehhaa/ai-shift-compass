@@ -319,7 +319,10 @@ export default function AdminDashboard() {
                       {new Date(share.created_at).toLocaleString("ko-KR")}
                     </p>
                   </div>
-                  <span className="text-[11px] text-muted-foreground font-mono">{share.id.slice(0, 8)}...</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-muted-foreground font-mono">{share.id.slice(0, 8)}...</span>
+                    <button onClick={() => handleDeleteShare(share.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
               ))}
               {sharedResults.length === 0 && (
