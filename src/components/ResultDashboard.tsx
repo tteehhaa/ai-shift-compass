@@ -14,6 +14,21 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
 
+  const levelDurations: Record<string, number> = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    assist: 0,
+    human: 0,
+  };
+  result.activities.forEach((activity) => {
+    levelDurations[activity.replacement_level] += activity.original_duration_hr;
+  });
+
+  const replacementBarOrder = ['critical', 'high', 'medium', 'low', 'assist', 'human'] as const;
+  const graphTotalHr = replacementBarOrder.reduce((sum, level) => sum + levelDurations[level], 0) || 1;
+
   // Grouped time report items
   const timeGroups = [
     {
