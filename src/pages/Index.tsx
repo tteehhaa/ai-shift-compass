@@ -1,13 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, RotateCcw, Loader2 } from "lucide-react";
+import { ArrowRight, RotateCcw, Sparkles } from "lucide-react";
 import MBTIGrid from "@/components/MBTIGrid";
 import RoutineInput from "@/components/RoutineInput";
 import AnalysisAnimation from "@/components/AnalysisAnimation";
 import ResultDashboard from "@/components/ResultDashboard";
 import ShareCards from "@/components/ShareCards";
 import { analyzeRoutines } from "@/lib/analysis-engine";
-import { supabase } from "@/integrations/supabase/client";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
@@ -19,42 +17,40 @@ const SAMPLE_ROUTINES: RoutineEntry[] = [
   { time: "17:00", activity: "유튜브 시청", duration: 1 },
 ];
 
-type Step = "input" | "analyzing" | "result" | "loading";
+type Step = "input" | "analyzing" | "result";
 
 export default function Index() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [step, setStep] = useState<Step>(id ? "loading" : "input");
+  const [step, setStep] = useState<Step>("input");
   const [mbti, setMbti] = useState("");
   const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showShare, setShowShare] = useState(false);
 
-  // 공유 링크(/result/:id)로 접속 시 DB에서 데이터 로드
+  // ⭐️ 핵심 추가: 이 사람이 '공유 링크'를 타고 온 방문자인지 추적하는 상태
+  const [isSharedView, setIsSharedView] = useState(false);
+
   useEffect(() => {
-    if (!id) return;
+    const params = new URLSearchParams(window.location.search);
+    const dataParam = params.get("data");
 
-    const fetchSharedResult = async () => {
-      setStep("loading");
-      const { data, error } = await supabase
-        .from("shared_results")
-        .select("mbti, result_data")
-        .eq("id", id)
-        .single();
+    if (dataParam) {
+      try {
+        const decodedString = decodeURIComponent(atob(dataParam));
+        const parsedData = JSON.parse(decodedString);
 
-      if (error || !data) {
-        console.error("공유된 결과를 불러오는 데 실패했습니다:", error);
-        navigate("/", { replace: true });
-        return;
+        if (parsedData && parsedData.result && parsedData.mbti) {
+          setResult(parsedData.result);
+          setMbti(parsedData.mbti);
+          setStep("result");
+          setIsSharedView(true); // 공유 링크로 들어왔음을 표시!
+
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      } catch (error) {
+        console.error("공유된 데이터를 읽는 데 실패했습니다:", error);
       }
-
-      setResult(data.result_data as unknown as AnalysisResult);
-      setMbti(data.mbti);
-      setStep("result");
-    };
-
-    fetchSharedResult();
-  }, [id, navigate]);
+    }
+  }, []);
 
   const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim());
 
@@ -73,7 +69,8 @@ export default function Index() {
     setStep("input");
     setResult(null);
     setShowShare(false);
-    navigate("/", { replace: true });
+    setIsSharedView(false); // 다시 시작할 때는 공유 상태 해제
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -87,10 +84,23 @@ export default function Index() {
           {step === "result" && (
             <button
               onClick={handleReset}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className={
+                isSharedView
+                  ? "flex items-center gap-1.5 text-sm font-bold text-primary hover:opacity-80 transition-opacity"
+                  : "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              }
             >
-              <RotateCcw className="w-4 h-4" />
-              다시 진단
+              {isSharedView ? (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  나도 진단하기
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-4 h-4" />
+                  다시 진단
+                </>
+              )}
             </button>
           )}
         </div>
@@ -137,17 +147,32 @@ export default function Index() {
           </div>
         )}
 
-        {step === "loading" && (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">결과를 불러오는 중입니다...</p>
-          </div>
-        )}
-
         {step === "analyzing" && <AnalysisAnimation onComplete={handleAnalysisComplete} />}
 
         {step === "result" && result && (
-          <ResultDashboard result={result} mbti={mbti} onShowShare={() => setShowShare(true)} />
+          <div className="space-y-8 pb-10">
+            <ResultDashboard result={result} mbti={mbti} onShowShare={() => setShowShare(true)} />
+
+            {/* ⭐️ 핵심 추가: 공유 방문자에게만 보이는 거대한 유입 배너 */}
+            {isSharedView && (
+              <div className="glass-card rounded-3xl p-8 text-center border-2 border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
+                  <Sparkles className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">나의 AI 시프트 지수는 얼마일까?</h3>
+                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                  남의 결과만 보지 말고,
+                  <br />내 일상에 숨겨진 AI 레버리지 기회를 확인해보세요!
+                </p>
+                <button
+                  onClick={handleReset}
+                  className="w-full rounded-2xl bg-primary text-primary-foreground py-4 font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 transition-all hover:opacity-90 active:scale-[0.99]"
+                >
+                  🚀 지금 바로 1분 만에 진단하기
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </main>
 
