@@ -1,5 +1,57 @@
 import type { AnalyzedActivity, AnalysisResult, ActivityCategory, AIInvolvement, ReplacementLevel, RoutineEntry, TimeReport } from './types';
 
+// ── 색상/라벨/설명 상수 (Dashboard & ShareCards에서 사용) ──
+export const REPLACEMENT_COLORS: Record<ReplacementLevel, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#22c55e',
+  assist: '#3b82f6',
+  human: '#a855f7',
+};
+
+export const REPLACEMENT_LABELS: Record<ReplacementLevel, string> = {
+  critical: '완전 대체',
+  high: 'AI 잠식',
+  medium: '부분 지원',
+  low: '보조 활용',
+  assist: '자동화 성공',
+  human: '인간 고유',
+};
+
+export const REPLACEMENT_DESCRIPTIONS: Record<ReplacementLevel, string> = {
+  critical: 'AI가 거의 완전히 대체 가능한 활동',
+  high: '알고리즘에 시간을 빼앗기는 활동',
+  medium: 'AI가 부분적으로 지원 가능한 활동',
+  low: 'AI를 보조적으로 활용하는 활동',
+  assist: 'AI 도구로 크게 효율화된 활동',
+  human: '인간만이 할 수 있는 고유 활동',
+};
+
+export const TIME_CATEGORY_COLORS: Record<string, string> = {
+  gainHr: '#ef4444',
+  erosionHr: '#f97316',
+  augmentHr: '#3b82f6',
+  mixedHr: '#eab308',
+  humanHr: '#a855f7',
+};
+
+export const TIME_CATEGORY_LABELS: Record<string, string> = {
+  gainHr: '완전 대체',
+  erosionHr: 'AI 잠식',
+  augmentHr: '자동화 성공',
+  mixedHr: '부분 지원',
+  humanHr: '인간 고유',
+};
+
+export const TIME_CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  gainHr: 'AI가 완전히 대체할 수 있는 시간',
+  erosionHr: '알고리즘에 빼앗긴 시간',
+  augmentHr: 'AI 도구로 효율화한 시간',
+  mixedHr: 'AI가 부분 지원하는 시간',
+  humanHr: '인간 고유 활동 시간',
+};
+
 const COMPRESSION_RATES: Record<ActivityCategory, number> = {
   '정보학습': 5.0,
   '문서사무': 4.0,
