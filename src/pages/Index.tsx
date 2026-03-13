@@ -1,46 +1,46 @@
-import { useState, useCallback } from 'react';
-import { ArrowRight, RotateCcw } from 'lucide-react';
-import MBTIGrid from '@/components/MBTIGrid';
-import RoutineInput from '@/components/RoutineInput';
-import AnalysisAnimation from '@/components/AnalysisAnimation';
-import ResultDashboard from '@/components/ResultDashboard';
-import ShareCards from '@/components/ShareCards';
-import { analyzeRoutines } from '@/lib/analysis-engine';
-import type { RoutineEntry, AnalysisResult } from '@/lib/types';
+import { useState, useCallback } from "react";
+import { ArrowRight, RotateCcw } from "lucide-react";
+import MBTIGrid from "@/components/MBTIGrid";
+import RoutineInput from "@/components/RoutineInput";
+import AnalysisAnimation from "@/components/AnalysisAnimation";
+import ResultDashboard from "@/components/ResultDashboard";
+import ShareCards from "@/components/ShareCards";
+import { analyzeRoutines } from "@/lib/analysis-engine";
+import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
-  { time: '08:00', activity: '이메일 확인 및 답장', duration: 1 },
-  { time: '09:00', activity: 'AI로 리서치 자료 정리', duration: 2 },
-  { time: '11:00', activity: '보고서 작성', duration: 1 },
-  { time: '13:00', activity: '점심 식사 및 산책', duration: 1 },
-  { time: '14:00', activity: '코딩 및 개발 작업', duration: 3 },
-  { time: '17:00', activity: '유튜브 시청', duration: 1 },
+  { time: "08:00", activity: "이메일 확인 및 답장", duration: 1 },
+  { time: "09:00", activity: "AI로 리서치 자료 정리", duration: 2 },
+  { time: "11:00", activity: "보고서 작성", duration: 1 },
+  { time: "13:00", activity: "점심 식사 및 산책", duration: 1 },
+  { time: "14:00", activity: "코딩 및 개발 작업", duration: 3 },
+  { time: "17:00", activity: "유튜브 시청", duration: 1 },
 ];
 
-type Step = 'input' | 'analyzing' | 'result';
+type Step = "input" | "analyzing" | "result";
 
 export default function Index() {
-  const [step, setStep] = useState<Step>('input');
-  const [mbti, setMbti] = useState('');
+  const [step, setStep] = useState<Step>("input");
+  const [mbti, setMbti] = useState("");
   const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showShare, setShowShare] = useState(false);
 
-  const canAnalyze = mbti && routines.length > 0 && routines.every(r => r.activity.trim());
+  const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim());
 
   const handleAnalyze = () => {
-    setStep('analyzing');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setStep("analyzing");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleAnalysisComplete = useCallback(() => {
     const res = analyzeRoutines(routines, mbti);
     setResult(res);
-    setStep('result');
+    setStep("result");
   }, [routines, mbti]);
 
   const handleReset = () => {
-    setStep('input');
+    setStep("input");
     setResult(null);
     setShowShare(false);
   };
@@ -53,7 +53,7 @@ export default function Index() {
             <h1 className="text-base font-semibold text-foreground tracking-tight">AI Life Shift</h1>
             <p className="text-[11px] text-muted-foreground">AI 라이프 시프트 진단</p>
           </div>
-          {step === 'result' && (
+          {step === "result" && (
             <button
               onClick={handleReset}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -66,15 +66,13 @@ export default function Index() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 py-8">
-        {step === 'input' && (
+        {step === "input" && (
           <div className="space-y-10">
             {/* Hero */}
             <div className="text-center space-y-3 pt-4">
-              <h2 className="text-2xl font-bold text-foreground tracking-tight">
-                평범한 나의 일상을 입력하세요
-              </h2>
+              <h2 className="text-2xl font-bold text-foreground tracking-tight">본인의 일상을 입력하세요</h2>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
-                시간대별 활동을 기록하면, AI가 당신의 삶을 얼마나 대체할 수 있는지 진단합니다.
+                AI가 당신의 삶에 얼마나 영향을 끼칠 수 있는지 진단합니다.
               </p>
             </div>
 
@@ -90,7 +88,8 @@ export default function Index() {
               <MBTIGrid selected={mbti} onSelect={setMbti} />
               {mbti && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  선택됨: <span className="font-semibold text-foreground">{mbti === 'UNKNOWN' ? 'MBTI 모름' : mbti}</span>
+                  선택됨:{" "}
+                  <span className="font-semibold text-foreground">{mbti === "UNKNOWN" ? "MBTI 모름" : mbti}</span>
                 </p>
               )}
             </section>
@@ -107,18 +106,14 @@ export default function Index() {
           </div>
         )}
 
-        {step === 'analyzing' && (
-          <AnalysisAnimation onComplete={handleAnalysisComplete} />
-        )}
+        {step === "analyzing" && <AnalysisAnimation onComplete={handleAnalysisComplete} />}
 
-        {step === 'result' && result && (
+        {step === "result" && result && (
           <ResultDashboard result={result} mbti={mbti} onShowShare={() => setShowShare(true)} />
         )}
       </main>
 
-      {showShare && result && (
-        <ShareCards result={result} mbti={mbti} onClose={() => setShowShare(false)} />
-      )}
+      {showShare && result && <ShareCards result={result} mbti={mbti} onClose={() => setShowShare(false)} />}
     </div>
   );
 }
