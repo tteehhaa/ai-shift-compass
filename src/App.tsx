@@ -16,6 +16,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          {/* ⭐️ 추가된 부분: 공유 링크로 들어와도 Index 컴포넌트를 렌더링하도록 길 추가 */}
+          <Route path="/result" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
