@@ -62,7 +62,7 @@ export default function CommunityRanking({ activities }: CommunityRankingProps) 
     const fetchData = async () => {
       const { data, error } = await supabase
         .from("activity_rankings")
-        .select("activity_name, replacement_score, count")
+        .select("activity_name, replacement_level, replacement_score, count")
         .order("count", { ascending: false })
         .limit(3);
 
