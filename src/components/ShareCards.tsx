@@ -207,7 +207,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
 나와 가장 잘 맞는 AI 파트너는 누구일까요?
 
-테스트 하기: ${url}`;
+테스트 하기: ${SERVICE_URL}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
