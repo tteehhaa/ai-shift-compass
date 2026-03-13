@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_rankings: {
+        Row: {
+          activity_name: string
+          category: string
+          count: number
+          created_at: string
+          id: string
+          replacement_level: string
+          replacement_score: number
+          updated_at: string
+        }
+        Insert: {
+          activity_name: string
+          category: string
+          count?: number
+          created_at?: string
+          id?: string
+          replacement_level: string
+          replacement_score: number
+          updated_at?: string
+        }
+        Update: {
+          activity_name?: string
+          category?: string
+          count?: number
+          created_at?: string
+          id?: string
+          replacement_level?: string
+          replacement_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_subscribers: {
         Row: {
           created_at: string
