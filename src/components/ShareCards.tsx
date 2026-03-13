@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import html2canvas from "html2canvas";
 import type { AnalysisResult } from "@/lib/types";
 import { Download, Copy, Share2, Check, Loader2, X } from "lucide-react";
 import { REPLACEMENT_COLORS } from "@/lib/analysis-engine";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const SERVICE_URL = "https://ai-shift-compass.lovable.app";
 
@@ -153,18 +154,66 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
 export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [savingLink, setSavingLink] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string>(SERVICE_URL);
+  const [shareId, setShareId] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const monthlyValue = result.economicValueMonthly ?? 0;
+  // Supabase에 결과 저장하고 짧은 URL 생성
+  const saveAndGetShareUrl = async (): Promise<string | null> => {
+    if (shareId) return shareUrl;
+    
+    setSavingLink(true);
+    try {
+      const { data, error } = await supabase
+        .from("shared_results")
+        .insert([
+          {
+            mbti: mbti || "UNKNOWN",
+            result_data: result as unknown as import("@/integrations/supabase/types").Database["public"]["Tables"]["shared_results"]["Insert"]["result_data"],
+          },
+        ])
+        .select("id")
+        .single();
 
-  const getShareText = () => {
-    return `저의 AI 활용 능력은 ${result.shiftIndex}점, 절약 가능한 기회비용은 ${monthlyValue.toLocaleString()}원입니다. 데이터 기반의 AI 진단을 직접 경험해보세요.\n\n${SERVICE_URL}/`;
+      if (error) throw error;
+      
+      const id = data.id;
+      const shortUrl = `${SERVICE_URL}/result/${id}`;
+      setShareId(id);
+      setShareUrl(shortUrl);
+      return shortUrl;
+    } catch (err) {
+      console.error("Failed to save share result:", err);
+      toast.error("링크 생성에 실패했습니다.");
+      return null;
+    } finally {
+      setSavingLink(false);
+    }
+  };
+
+  // 모달 열릴 때 자동으로 링크 생성
+  useEffect(() => {
+    saveAndGetShareUrl();
+  }, []);
+
+  const getShareText = (url: string = shareUrl) => {
+    const mbtiDisplay = mbti !== "UNKNOWN" ? mbti : "";
+    return `[ AI 라이프 시프트 : 나의 진단 리포트 ]
+
+나의 일상 중 ${result.shiftIndex}%가 AI로 대체 또는 활용될 수 있습니다.
+
+나의 AI 페르소나: ${result.personaEmoji} ${mbtiDisplay} ${result.persona}
+${result.personaTitle}
+
+나와 가장 잘 맞는 AI 파트너는 누구일까요?
+
+진단 결과 확인하기: ${url}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
     if (!cardRef.current) return null;
     try {
-      // Render at 1080x1080
       const el = cardRef.current;
       const canvas = await html2canvas(el, {
         backgroundColor: "#ffffff",
@@ -199,7 +248,10 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
   // 2. 결과 복사
   const handleCopy = async () => {
-    const text = getShareText();
+    const url = await saveAndGetShareUrl();
+    if (!url) return;
+    
+    const text = getShareText(url);
     let ok = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -218,10 +270,16 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
   // 3. 공유하기 (Web Share API)
   const handleShare = async () => {
+    const url = await saveAndGetShareUrl();
+    if (!url) {
+      await handleCopy();
+      return;
+    }
+
     const shareData: ShareData = {
-      title: "[AI 인생 항로] 나의 AI 진단 결과",
-      text: `저의 AI 활용 능력은 ${result.shiftIndex}점, 절약 가능한 기회비용은 ${monthlyValue.toLocaleString()}원입니다. 데이터 기반의 AI 진단을 직접 경험해보세요.`,
-      url: `${SERVICE_URL}/`,
+      title: "[ AI 라이프 시프트 : 나의 진단 리포트 ]",
+      text: `나의 일상 중 ${result.shiftIndex}%가 AI로 대체 또는 활용될 수 있습니다.\n\n나의 AI 페르소나: ${result.personaEmoji} ${mbti !== "UNKNOWN" ? mbti : ""} ${result.persona}\n${result.personaTitle}\n\n나와 가장 잘 맞는 AI 파트너는 누구일까요?`,
+      url: url,
     };
 
     if (navigator.share) {
@@ -229,7 +287,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
         await navigator.share(shareData);
         return;
       } catch (e) {
-        // User cancelled — silently ignore
         if ((e as DOMException)?.name === "AbortError") return;
       }
     }
@@ -253,15 +310,15 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Card preview (hidden visually but used for capture) */}
+          {/* Card preview */}
           <div ref={cardRef}>
             <ShareCard result={result} mbti={mbti} />
           </div>
 
-          {capturing && (
+          {(capturing || savingLink) && (
             <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              이미지 생성 중...
+              {savingLink ? "링크 생성 중..." : "이미지 생성 중..."}
             </div>
           )}
 
@@ -272,12 +329,12 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
               <span className="text-xs font-medium">이미지 저장</span>
             </button>
 
-            <button onClick={handleCopy} className={btnBase}>
+            <button onClick={handleCopy} disabled={savingLink} className={btnBase}>
               {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
               <span className="text-xs font-medium">{copied ? "복사됨!" : "결과 복사"}</span>
             </button>
 
-            <button onClick={handleShare} className={btnBase}>
+            <button onClick={handleShare} disabled={savingLink} className={btnBase}>
               <Share2 className="w-5 h-5" />
               <span className="text-xs font-medium">공유하기</span>
             </button>
