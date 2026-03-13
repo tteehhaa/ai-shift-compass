@@ -203,12 +203,11 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
 나의 일상 중 ${result.shiftIndex}%가 AI로 대체 또는 활용될 수 있습니다.
 
-나의 AI 페르소나: ${result.personaEmoji} ${mbtiDisplay} ${result.persona}
-${result.personaTitle}
+나의 AI 페르소나: ${result.personaEmoji} ${mbtiDisplay} ${result.persona} - ${result.personaTitle}
 
 나와 가장 잘 맞는 AI 파트너는 누구일까요?
 
-진단 결과 확인하기: ${url}`;
+테스트 하기: ${url}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
