@@ -155,7 +155,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [capturing, setCapturing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const monthlyValue = result.monthlyOpportunityCostKRW ?? 0;
+  const monthlyValue = result.economicValueMonthly ?? 0;
 
   const getShareText = () => {
     return `저의 AI 활용 능력은 ${result.shiftIndex}점, 절약 가능한 기회비용은 ${monthlyValue.toLocaleString()}원입니다. 데이터 기반의 AI 진단을 직접 경험해보세요.\n\n${SERVICE_URL}/`;

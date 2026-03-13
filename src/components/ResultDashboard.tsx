@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Clock,
   Heart,
-  Zap,
+  Share2,
   AlertTriangle,
   Info,
   ChevronDown,
