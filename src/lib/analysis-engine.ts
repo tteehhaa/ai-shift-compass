@@ -1,7 +1,7 @@
 import type { AnalyzedActivity, AnalysisResult, ActivityCategory, AIInvolvement, ReplacementLevel, RoutineEntry, TimeReport } from './types';
 
 // ═══════════════════════════════════════════════════════════════
-// Semantic Classifier — 3-tier activity classification
+// Semantic Classifier — keyword-forced 3-tier classification
 // ═══════════════════════════════════════════════════════════════
 
 type SemanticGroup = 'human' | 'erosion' | 'augment';
@@ -11,108 +11,161 @@ interface ClassificationResult {
   category: ActivityCategory;
   involvement: AIInvolvement;
   isHighCognitive: boolean;
-  /** 범위 내 유연 대체율 */
   replacementScore: number;
 }
 
-// ── 1) 인간 고유 영역 (🟣 보라 / 0~10%) ──
-// 생리적 현상, 신체 활동, 대면 소통, 예술·명상 전체
-const HUMAN_PATTERNS: { regex: RegExp; score: number }[] = [
-  // 생리적: 0~3%
-  { regex: /식사|밥|먹|아침\s?식사|점심\s?식사|저녁\s?식사|간식|야식|수면|잠|낮잠|잠들|기상|일어나|세수|양치|샤워|목욕|화장실/, score: 2 },
-  // 신체 활동: 3~8%
-  { regex: /산책|조깅|달리기|러닝|운동|헬스|웨이트|필라테스|요가|스트레칭|등산|하이킹|자전거|수영|농구|축구|배드민턴|탁구|테니스|골프|클라이밍|댄스|춤/, score: 5 },
-  // 대면 소통: 2~6%
-  { regex: /대화|수다|잡담|통화|전화|만남|모임|회식|데이트|육아|돌봄|아이|아기|가족|친구|동료|면담/, score: 4 },
-  // 예술·명상·휴식: 3~8%
-  { regex: /명상|기도|묵상|휴식|쉬|낮잠|그림|그리기|악기|피아노|기타|노래|음악\s?감상|독서|읽기|책|일기|저널|손글씨|뜨개질|요리|베이킹|정원|화분|반려|산림욕/, score: 6 },
-  // 일반 생활: 5%
-  { regex: /커피|차|티타임|카페|놀이|산보|드라이브|여행|관광|공원/, score: 5 },
-];
-
-// ── 2) AI 잠식/위험 (🔴 빨강·주황 / 80~100%) ──
-// 알고리즘 기반 수동적 미디어 소비, 시간 때우기용 디지털 활동
-const EROSION_PATTERNS: { regex: RegExp; score: number }[] = [
-  // 숏폼/추천 알고리즘 콘텐츠: 90~100%
-  { regex: /쇼츠|숏폼|릴스|틱톡|shorts/, score: 95 },
-  // 장시간 스트리밍: 85~95%
-  { regex: /유튜브|youtube|넷플릭스|netflix|왓챠|디즈니\+?|웨이브|티빙/, score: 88 },
-  // SNS 피드: 85~95%
-  { regex: /인스타그램|인스타|instagram|페이스북|facebook|트위터|twitter|x\.com|스레드|threads/, score: 90 },
-  // 커뮤니티 눈팅: 80~90%
-  { regex: /레딧|reddit|디시|디씨|루리웹|에펨코리아|더쿠|뽐뿌|클리앙|눈팅|커뮤니티/, score: 83 },
-  // 웹서핑/스크롤: 80~88%
-  { regex: /웹서핑|스크롤|멍하니|sns|소셜|피드/, score: 82 },
-  // 모바일 게임/캐주얼: 80~85%
-  { regex: /게임|겜|롤|lol|배그|모바일\s?게임|가챠/, score: 82 },
-  // 온라인 쇼핑(충동): 80~85%
-  { regex: /쿠팡|쇼핑|네이버\s?쇼핑|장바구니|윈도우\s?쇼핑|알리|테무/, score: 80 },
-  // 웹툰: 82~88%
-  { regex: /웹툰|웹소설|만화/, score: 85 },
-  // 알고리즘 추천: 90%
-  { regex: /알고리즘|추천\s?영상|자동\s?재생|autoplay/, score: 92 },
-];
-
-// ── 3) AI 증강/획득 (🔵 파랑·초록 / 50~90%) ──
-// 디지털 도구 기반 생산적 업무·학습·연구
-interface AugmentPattern {
-  regex: RegExp;
-  category: ActivityCategory;
-  isHighCognitive: boolean;
-  score: number; // 기본 대체율
+interface KeywordRule {
+  keywords: string[];
+  score: number;
 }
 
-const AUGMENT_PATTERNS: AugmentPattern[] = [
-  // 전문기술 (60~75%)
-  { regex: /코딩|개발|프로그래밍|설계|소프트웨어|앱\s?개발|백엔드|프론트엔드|풀스택|api|서버/, category: '전문기술', isHighCognitive: true, score: 70 },
-  { regex: /데이터\s?분석|데이터\s?사이언스|머신러닝|딥러닝|통계|시각화|대시보드/, category: '전문기술', isHighCognitive: true, score: 65 },
-  { regex: /디자인|ui|ux|피그마|figma|포토샵|일러스트|캔바|canva/, category: '전문기술', isHighCognitive: true, score: 60 },
-  // 문서사무 (75~90%)
-  { regex: /보고서|리포트|문서|작성|ppt|파워포인트|프레젠테이션|슬라이드/, category: '문서사무', isHighCognitive: false, score: 85 },
-  { regex: /이메일|메일|email|답장|회신/, category: '문서사무', isHighCognitive: false, score: 88 },
-  { regex: /엑셀|스프레드시트|표\s?정리|수식|피벗/, category: '문서사무', isHighCognitive: false, score: 82 },
-  { regex: /회의록|미팅\s?노트|의사록|정리|요약/, category: '문서사무', isHighCognitive: false, score: 80 },
-  { regex: /번역|통역|영작|영어\s?작성/, category: '문서사무', isHighCognitive: false, score: 90 },
-  { regex: /발표\s?준비|발표\s?자료/, category: '문서사무', isHighCognitive: false, score: 78 },
-  // 정보학습 (65~80%)
-  { regex: /공부|학습|스터디|수업|강의|강좌|인강|온라인\s?강의/, category: '정보학습', isHighCognitive: true, score: 72 },
-  { regex: /리서치|연구|조사|검색|자료\s?조사|논문|학술/, category: '정보학습', isHighCognitive: true, score: 75 },
-  { regex: /자료\s?정리|노트\s?정리|메모\s?정리/, category: '정보학습', isHighCognitive: true, score: 70 },
-  { regex: /뉴스|시사|기사\s?읽/, category: '정보학습', isHighCognitive: true, score: 68 },
-  // 창의기획 (50~65%)
-  { regex: /기획|기획안|전략|컨셉|콘셉트|비즈니스\s?모델/, category: '창의기획', isHighCognitive: true, score: 55 },
-  { regex: /아이디어|브레인스토밍|마인드맵/, category: '창의기획', isHighCognitive: true, score: 50 },
-  { regex: /창작|글쓰기|블로그|포스팅|콘텐츠\s?제작|영상\s?편집|편집/, category: '창의기획', isHighCognitive: true, score: 58 },
-  { regex: /마케팅|광고|카피|홍보|sns\s?관리|콘텐츠\s?기획/, category: '창의기획', isHighCognitive: true, score: 62 },
+interface AugmentRule extends KeywordRule {
+  category: ActivityCategory;
+  isHighCognitive: boolean;
+  minScore: number;
+  maxScore: number;
+}
+
+// 1) 인간 고유 영역 (🟣 / involvement=none 고정)
+const HUMAN_RULES: KeywordRule[] = [
+  { keywords: ['식사', '밥', '아침', '점심', '저녁', '간식', '야식', '수면', '잠', '낮잠', '목욕', '샤워'], score: 3 },
+  { keywords: ['산책', '조깅', '러닝', '운동', '헬스', '요가', '필라테스', '스트레칭', '농구', '축구', '수영'], score: 6 },
+  { keywords: ['대화', '수다', '통화', '전화', '만남', '육아', '돌봄', '가족', '친구'], score: 5 },
+  { keywords: ['명상', '휴식', '기도', '그림', '독서', '책', '일기', '음악감상'], score: 7 },
 ];
 
-// ── Semantic Classifier ──
+// 2) AI 잠식/위험 (🔴/🟠 / involvement=passive 고정)
+const EROSION_RULES: KeywordRule[] = [
+  { keywords: ['쇼츠', '숏폼', '릴스', '틱톡', 'shorts', 'tiktok'], score: 84 },
+  { keywords: ['유튜브', 'youtube', '인스타그램', '인스타', 'instagram', '틱톡', 'threads', '스레드'], score: 80 },
+  { keywords: ['웹서핑', '눈팅', '커뮤니티', '스크롤', '피드', '알고리즘', '추천콘텐츠', '자동재생'], score: 82 },
+  { keywords: ['단순게임', '모바일게임', '시간때우기'], score: 78 },
+];
+
+// 3) AI 증강/획득 (🔵/🟢/🟡 / involvement=active 고정)
+const AUGMENT_RULES: AugmentRule[] = [
+  {
+    keywords: ['코딩', '개발', '프로그래밍', '설계', 'api', '서버', '디버깅', '리팩토링'],
+    category: '전문기술',
+    isHighCognitive: true,
+    score: 52,
+    minScore: 48,
+    maxScore: 60,
+  },
+  {
+    keywords: ['보고서', '리포트', '이메일', '메일', '번역', '자료정리', '문서작성', '회의록'],
+    category: '문서사무',
+    isHighCognitive: false,
+    score: 40,
+    minScore: 34,
+    maxScore: 48,
+  },
+  {
+    keywords: ['리서치', '연구', '공부', '학습', '조사', '검색', '논문', '강의'],
+    category: '정보학습',
+    isHighCognitive: true,
+    score: 46,
+    minScore: 38,
+    maxScore: 54,
+  },
+  {
+    keywords: ['기획', '기획안', '아이디어', '브레인스토밍', '콘텐츠기획', '글쓰기', '포스팅'],
+    category: '창의기획',
+    isHighCognitive: true,
+    score: 50,
+    minScore: 42,
+    maxScore: 58,
+  },
+];
+
+function normalizeActivityText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9가-힣]/g, '');
+}
+
+function countKeywordHits(text: string, keywords: string[]): number {
+  return keywords.reduce((count, keyword) => count + (text.includes(normalizeActivityText(keyword)) ? 1 : 0), 0);
+}
+
+function pickBestRule(text: string, rules: KeywordRule[]): { hitCount: number; score: number } {
+  return rules.reduce(
+    (best, rule) => {
+      const hitCount = countKeywordHits(text, rule.keywords);
+      if (hitCount > best.hitCount) {
+        return { hitCount, score: rule.score };
+      }
+      return best;
+    },
+    { hitCount: 0, score: 0 },
+  );
+}
+
+function pickBestAugmentRule(text: string): { hitCount: number; rule: AugmentRule | null } {
+  return AUGMENT_RULES.reduce(
+    (best, rule) => {
+      const hitCount = countKeywordHits(text, rule.keywords);
+      if (hitCount > best.hitCount) {
+        return { hitCount, rule };
+      }
+      return best;
+    },
+    { hitCount: 0, rule: null as AugmentRule | null },
+  );
+}
+
 function classifyActivity(text: string): ClassificationResult {
-  const t = text.toLowerCase().trim();
+  const normalized = normalizeActivityText(text);
 
-  // Priority 1: 인간 고유 영역
-  for (const pattern of HUMAN_PATTERNS) {
-    if (pattern.regex.test(t)) {
-      return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: pattern.score };
-    }
+  const humanMatch = pickBestRule(normalized, HUMAN_RULES);
+  const erosionMatch = pickBestRule(normalized, EROSION_RULES);
+  const augmentMatch = pickBestAugmentRule(normalized);
+
+  const groupHitMap: Record<SemanticGroup, number> = {
+    erosion: erosionMatch.hitCount,
+    augment: augmentMatch.hitCount,
+    human: humanMatch.hitCount,
+  };
+
+  const maxHit = Math.max(groupHitMap.erosion, groupHitMap.augment, groupHitMap.human);
+  if (maxHit === 0) {
+    return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: 5 };
   }
 
-  // Priority 2: AI 잠식/위험
-  for (const pattern of EROSION_PATTERNS) {
-    if (pattern.regex.test(t)) {
-      return { group: 'erosion', category: '일상', involvement: 'passive', isHighCognitive: false, replacementScore: pattern.score };
-    }
+  // tie-break priority: erosion > augment > human
+  const group: SemanticGroup = (['erosion', 'augment', 'human'] as const).find((g) => groupHitMap[g] === maxHit) ?? 'human';
+
+  if (group === 'human') {
+    return {
+      group: 'human',
+      category: '일상',
+      involvement: 'none',
+      isHighCognitive: false,
+      replacementScore: Math.min(10, Math.max(1, humanMatch.score || 5)),
+    };
   }
 
-  // Priority 3: AI 증강/획득
-  for (const pattern of AUGMENT_PATTERNS) {
-    if (pattern.regex.test(t)) {
-      return { group: 'augment', category: pattern.category, involvement: 'active', isHighCognitive: pattern.isHighCognitive, replacementScore: pattern.score };
-    }
+  if (group === 'erosion') {
+    return {
+      group: 'erosion',
+      category: '일상',
+      involvement: 'passive',
+      isHighCognitive: false,
+      replacementScore: Math.min(84, Math.max(70, erosionMatch.score || 80)),
+    };
   }
 
-  // Fallback: 인간 고유 (분류 불가 → 안전하게 인간 영역)
-  return { group: 'human', category: '일상', involvement: 'none', isHighCognitive: false, replacementScore: 5 };
+  const rule = augmentMatch.rule ?? AUGMENT_RULES[0];
+  const dynamicScore = Math.min(
+    rule.maxScore,
+    Math.max(rule.minScore, rule.score + Math.max(0, augmentMatch.hitCount - 1) * 3),
+  );
+
+  return {
+    group: 'augment',
+    category: rule.category,
+    involvement: 'active',
+    isHighCognitive: rule.isHighCognitive,
+    replacementScore: dynamicScore,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
