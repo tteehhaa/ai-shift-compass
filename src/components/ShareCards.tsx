@@ -4,6 +4,7 @@ import type { AnalysisResult } from "@/lib/types";
 import { X, Download, Loader2, Check, Link2, MessageSquare } from "lucide-react";
 import { REPLACEMENT_COLORS } from "@/lib/analysis-engine";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const SERVICE_URL = "ai-shift-compass.lovable.app";
 
@@ -21,18 +22,20 @@ function useIsMobile() {
   return mobile;
 }
 
-// ── URL Encoding Helper (추가된 부분) ──
-// 사용자의 결과 데이터를 Base64로 인코딩하여 고유 URL을 생성합니다.
-const encodeResultToUrl = (result: AnalysisResult, mbti: string): string => {
-  try {
-    const dataString = JSON.stringify({ result, mbti });
-    // 한글 등 유니코드 처리를 위해 encodeURIComponent 사용 후 btoa 변환
-    const encoded = btoa(encodeURIComponent(dataString));
-    return `https://${SERVICE_URL}/result?data=${encoded}`;
-  } catch (error) {
-    console.error("Failed to encode result:", error);
-    return `https://${SERVICE_URL}`; // 인코딩 실패 시 메인 URL 반환
+// ── DB에 결과 저장 후 짧은 URL 반환 ──
+const saveAndGetShareUrl = async (result: AnalysisResult, mbti: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from("shared_results")
+    .insert({ mbti, result_data: result as any })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to save result:", error);
+    return null;
   }
+
+  return `https://${SERVICE_URL}/result/${data.id}`;
 };
 
 // ── Platform Icons (inline SVG for reliability) ──
