@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp } from "lucide-react";
+import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import CountUp from "@/components/CountUp";
 
 interface RankingItem {
