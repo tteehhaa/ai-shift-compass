@@ -19,40 +19,42 @@ const SAMPLE_ROUTINES: RoutineEntry[] = [
   { time: "17:00", activity: "유튜브 시청", duration: 1 },
 ];
 
-type Step = "input" | "analyzing" | "result";
+type Step = "input" | "analyzing" | "result" | "loading";
 
 export default function Index() {
-  const [step, setStep] = useState<Step>("input");
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [step, setStep] = useState<Step>(id ? "loading" : "input");
   const [mbti, setMbti] = useState("");
   const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showShare, setShowShare] = useState(false);
 
-  // ⭐️ 핵심 로직: 공유 링크로 접속했을 때 데이터를 해독하여 화면에 띄워줍니다.
+  // 공유 링크(/result/:id)로 접속 시 DB에서 데이터 로드
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const dataParam = params.get("data");
+    if (!id) return;
 
-    if (dataParam) {
-      try {
-        // Base64 문자열을 원래의 객체로 복원합니다.
-        const decodedString = decodeURIComponent(atob(dataParam));
-        const parsedData = JSON.parse(decodedString);
+    const fetchSharedResult = async () => {
+      setStep("loading");
+      const { data, error } = await supabase
+        .from("shared_results")
+        .select("mbti, result_data")
+        .eq("id", id)
+        .single();
 
-        if (parsedData && parsedData.result && parsedData.mbti) {
-          setResult(parsedData.result);
-          setMbti(parsedData.mbti);
-          setStep("result"); // 입력/분석 단계를 건너뛰고 바로 결과 화면으로 이동
-
-          // 브라우저 주소창에 남아있는 길고 지저분한 ?data=... 파라미터를 깔끔하게 지워줍니다. (UX 향상)
-          window.history.replaceState({}, "", window.location.pathname);
-        }
-      } catch (error) {
-        console.error("공유된 데이터를 읽는 데 실패했습니다:", error);
-        // 에러가 발생하면 자연스럽게 기본 입력 폼(step="input")이 보이게 둡니다.
+      if (error || !data) {
+        console.error("공유된 결과를 불러오는 데 실패했습니다:", error);
+        navigate("/", { replace: true });
+        return;
       }
-    }
-  }, []);
+
+      setResult(data.result_data as unknown as AnalysisResult);
+      setMbti(data.mbti);
+      setStep("result");
+    };
+
+    fetchSharedResult();
+  }, [id, navigate]);
 
   const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim());
 
