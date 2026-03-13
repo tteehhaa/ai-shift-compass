@@ -34,8 +34,9 @@ interface ResultDashboardProps {
 function getCoffeeCount(value: number) {
   return Math.floor(value / 5000);
 }
-function getMovieCount(value: number) {
-  return Math.floor(value / 15000);
+function getMcdonaldsCount(value: number) {
+  // 2025 서울 기준 맥도날드 상품 가치 (빅맥 6500원 기준)
+  return Math.floor(value / 6500);
 }
 
 function getAnnualMetaphor(yearly: number): string {
@@ -98,7 +99,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
   ];
 
   const coffees = getCoffeeCount(result.economicValueDaily);
-  const movies = getMovieCount(result.economicValueMonthly);
+  const mcdonalds = getMcdonaldsCount(result.economicValueMonthly);
   const erosionDaily = result.timeReport.erosionHr * 10030;
 
   return (
@@ -315,10 +316,10 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
               formatter={(n) => n.toLocaleString()}
             />
           </div>
-          {movies > 0 && (
+          {mcdonalds > 0 && (
             <div className="flex items-center gap-1.5 justify-end mb-4">
-              <Clapperboard className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">영화 {movies}편 관람</span>
+              <span className="text-lg">🍟</span>
+              <span className="text-xs text-muted-foreground">맥도날드 지수 {mcdonalds}세트</span>
             </div>
           )}
 
