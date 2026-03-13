@@ -274,10 +274,11 @@ export default function AdminDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30 text-muted-foreground">
-                    <th className="text-left px-5 py-3 font-medium">이메일</th>
-                    <th className="text-left px-5 py-3 font-medium">MBTI</th>
-                    <th className="text-left px-5 py-3 font-medium">시프트 지수</th>
-                    <th className="text-left px-5 py-3 font-medium">가입일</th>
+                     <th className="text-left px-5 py-3 font-medium">이메일</th>
+                     <th className="text-left px-5 py-3 font-medium">MBTI</th>
+                     <th className="text-left px-5 py-3 font-medium">시프트 지수</th>
+                     <th className="text-left px-5 py-3 font-medium">가입일</th>
+                     <th className="text-right px-5 py-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
