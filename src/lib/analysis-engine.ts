@@ -148,22 +148,34 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const totalHr = activities.reduce((s, a) => s + a.original_duration_hr, 0) || 1;
 
-  // 5-category time report
-  const gainHr = Math.round(activities
-    .filter(a => a.ai_involvement === 'active' && (a.replacement_level === 'critical' || a.replacement_level === 'high'))
-    .reduce((s, a) => s + a.saved_time_hr, 0));
-  const erosionHr = Math.round(activities
+  // 5-category time report — strictly from actual activity data sums
+  // 잠식 시간: passive(유튜브, SNS 등) 활동의 전체 시간
+  const erosionHr = activities
     .filter(a => a.ai_involvement === 'passive')
-    .reduce((s, a) => s + a.original_duration_hr, 0));
-  const augmentHr = Math.round(activities
-    .filter(a => a.ai_involvement === 'active' && (a.replacement_level === 'medium' || a.replacement_level === 'low'))
-    .reduce((s, a) => s + a.agency_adjusted_hr, 0));
-  const humanHr = Math.round(activities
-    .filter(a => a.replacement_level === 'human' || a.ai_involvement === 'none')
-    .reduce((s, a) => s + a.original_duration_hr, 0));
-  const mixedHr = Math.max(0, Math.round(totalHr - gainHr - erosionHr - augmentHr - humanHr));
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  // 인간 고유 시간: involvement=none 활동의 전체 시간
+  const humanHr = activities
+    .filter(a => a.ai_involvement === 'none')
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  // 획득 시간: active 활동에서 AI로 절약된 시간
+  const gainHr = activities
+    .filter(a => a.ai_involvement === 'active')
+    .reduce((s, a) => s + a.saved_time_hr, 0);
+  // 증강 시간: active 활동에서 AI와 협업한 실제 작업 시간 (원래 시간 - 절약 시간)
+  const augmentHr = activities
+    .filter(a => a.ai_involvement === 'active')
+    .reduce((s, a) => s + (a.original_duration_hr - a.saved_time_hr), 0);
+  // 혼재 시간: 나머지 (보정값, 0 이상만)
+  const mixedHr = Math.max(0, Math.round(totalHr - erosionHr - humanHr - gainHr - augmentHr));
 
-  const timeReport: TimeReport = { totalHr, gainHr, erosionHr, augmentHr, mixedHr, humanHr };
+  const timeReport: TimeReport = {
+    totalHr: Math.round(totalHr),
+    gainHr: Math.round(gainHr),
+    erosionHr: Math.round(erosionHr),
+    augmentHr: Math.round(augmentHr),
+    mixedHr,
+    humanHr: Math.round(humanHr),
+  };
 
   const sumSavedQ = activities.reduce((s, a) => {
     const Q = a.is_high_cognitive ? 1.2 : 1.0;
