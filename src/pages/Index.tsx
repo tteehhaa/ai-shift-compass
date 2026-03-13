@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
-import { ArrowRight, RotateCcw } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowRight, RotateCcw, Loader2 } from "lucide-react";
 import MBTIGrid from "@/components/MBTIGrid";
 import RoutineInput from "@/components/RoutineInput";
 import AnalysisAnimation from "@/components/AnalysisAnimation";
 import ResultDashboard from "@/components/ResultDashboard";
 import ShareCards from "@/components/ShareCards";
 import { analyzeRoutines } from "@/lib/analysis-engine";
+import { supabase } from "@/integrations/supabase/client";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
