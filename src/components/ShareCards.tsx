@@ -15,6 +15,324 @@ interface ShareCardsProps {
 
 type ShareTab = 'instagram' | 'naver' | 'twitter' | 'facebook';
 
+// ── Shared: 24-hour Color Strip ──
+function ColorStrip({ result, height = 16 }: { result: AnalysisResult; height?: number }) {
+  const total = result.timeReport.totalHr || 1;
+  return (
+    <div className="flex rounded-full overflow-hidden w-full" style={{ height }}>
+      {result.activities.map((act, i) => (
+        <div
+          key={i}
+          style={{
+            backgroundColor: REPLACEMENT_COLORS[act.replacement_level],
+            width: `${(act.original_duration_hr / total) * 100}%`,
+            height: '100%',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Shared: Danger percentage ──
+function getDangerPercent(result: AnalysisResult) {
+  const total = result.timeReport.totalHr || 1;
+  const dangerHr = result.activities
+    .filter(a => a.replacement_level === 'critical' || a.replacement_level === 'high')
+    .reduce((s, a) => s + a.original_duration_hr, 0);
+  return Math.round((dangerHr / total) * 100);
+}
+
+// ── Shared: Logo sparkle ──
+function LogoMark({ size = 'sm' }: { size?: 'sm' | 'md' }) {
+  const s = size === 'md' ? 'text-base' : 'text-xs';
+  return (
+    <span className={cn(s, 'font-bold tracking-tight')}>
+      <span style={{ color: REPLACEMENT_COLORS.critical }}>A</span>
+      <span style={{ color: REPLACEMENT_COLORS.high }}>I</span>
+      <span className="mx-0.5" style={{ color: REPLACEMENT_COLORS.medium }}>L</span>
+      <span style={{ color: REPLACEMENT_COLORS.low }}>i</span>
+      <span style={{ color: REPLACEMENT_COLORS.assist }}>f</span>
+      <span style={{ color: REPLACEMENT_COLORS.human }}>e</span>
+      <span className="ml-1 text-gray-600">Shift</span>
+    </span>
+  );
+}
+
+// ── Shared: CTA footer ──
+function CtaFooter({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={cn('text-center', compact ? 'space-y-0.5' : 'space-y-1')}>
+      <p className={cn('font-semibold', compact ? 'text-[10px]' : 'text-xs')} style={{ color: '#3b82f6' }}>
+        👉 너도 해봐! 나의 AI 시프트 진단
+      </p>
+      <p className={cn('text-gray-400 break-all', compact ? 'text-[8px]' : 'text-[9px]')}>
+        {SERVICE_URL}
+      </p>
+    </div>
+  );
+}
+
+// ── Strip Legend (mini) ──
+function StripLegend() {
+  const items = [
+    { color: REPLACEMENT_COLORS.critical, label: '위험' },
+    { color: REPLACEMENT_COLORS.high, label: '잠식' },
+    { color: REPLACEMENT_COLORS.medium, label: '부분지원' },
+    { color: REPLACEMENT_COLORS.low, label: '보조' },
+    { color: REPLACEMENT_COLORS.assist, label: '자동화' },
+    { color: REPLACEMENT_COLORS.human, label: '인간고유' },
+  ];
+  return (
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+      {items.map(({ color, label }) => (
+        <span key={label} className="flex items-center gap-1 text-[9px] text-gray-500">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// Instagram Card (9:16)
+// ═══════════════════════════════════
+function InstagramCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
+  const danger = getDangerPercent(result);
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        aspectRatio: '9/16',
+        background: 'linear-gradient(160deg, #0f0f12 0%, #1a1a2e 50%, #16213e 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '28px 24px',
+      }}
+    >
+      {/* Top: Logo */}
+      <div className="flex items-center justify-between">
+        <LogoMark size="md" />
+        <span className="text-2xl">{result.personaEmoji}</span>
+      </div>
+
+      {/* Middle: Persona + Strip + Danger */}
+      <div className="space-y-6 flex-1 flex flex-col items-center justify-center">
+        <div className="text-center space-y-1">
+          <p className="text-white/50 text-[10px] tracking-[0.3em] uppercase">My AI Persona</p>
+          <h3 className="text-white text-lg font-bold">
+            {result.personaEmoji} {mbti !== 'UNKNOWN' ? `${mbti}: ` : ''}{result.persona}
+          </h3>
+          <p className="text-white/40 text-xs">{result.personaTitle}</p>
+        </div>
+
+        {/* The Strip — hero visual */}
+        <div className="w-full space-y-2">
+          <p className="text-white/30 text-[9px] text-center tracking-wider uppercase">나의 24시간 AI 컬러맵</p>
+          <ColorStrip result={result} height={24} />
+          <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+            {[
+              { color: REPLACEMENT_COLORS.critical, label: '위험' },
+              { color: REPLACEMENT_COLORS.high, label: '잠식' },
+              { color: REPLACEMENT_COLORS.medium, label: '부분지원' },
+              { color: REPLACEMENT_COLORS.low, label: '보조' },
+              { color: REPLACEMENT_COLORS.assist, label: '자동화' },
+              { color: REPLACEMENT_COLORS.human, label: '인간고유' },
+            ].map(({ color, label }) => (
+              <span key={label} className="flex items-center gap-1 text-[8px] text-white/40">
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Danger % — center hero number */}
+        <div className="text-center">
+          <p className="text-white/40 text-[10px] mb-1">AI 대체 위험도</p>
+          <div className="relative inline-block">
+            <span className="text-5xl font-black" style={{ color: danger >= 50 ? '#ef4444' : danger >= 30 ? '#f97316' : '#eab308' }}>
+              {danger}
+            </span>
+            <span className="text-lg text-white/50 ml-0.5">%</span>
+          </div>
+        </div>
+
+        {/* Shift Index */}
+        <div className="flex items-center justify-center gap-4 text-center">
+          <div>
+            <p className="text-white/30 text-[9px]">AI 시프트 지수</p>
+            <p className="text-white text-xl font-bold">{result.shiftIndex}%</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-white/30 text-[9px]">인간 고유 시간</p>
+            <p className="text-purple-400 text-xl font-bold">{result.humanTimePercent}%</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom: CTA */}
+      <div className="text-center space-y-1.5">
+        <p className="text-blue-400 text-xs font-semibold">👉 너도 해봐! 나의 AI 시프트 진단</p>
+        <p className="text-white/20 text-[8px]">{SERVICE_URL}</p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// Naver Blog Card
+// ═══════════════════════════════════
+function NaverBlogCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
+  const danger = getDangerPercent(result);
+  const monthlySavedHr = Math.round((result.timeReport.gainHr + result.timeReport.augmentHr) * 22);
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-50 to-white px-5 py-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-gray-900">
+            AI를 통해 매월 {monthlySavedHr}시간을 버는 법
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">AI Life Shift 진단 리포트</p>
+        </div>
+        <LogoMark />
+      </div>
+
+      <div className="p-5 space-y-4">
+        {/* Persona row */}
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">{result.personaEmoji}</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              {mbti !== 'UNKNOWN' ? `${mbti}: ` : ''}{result.persona}
+            </p>
+            <p className="text-xs text-gray-400">AI 시프트 지수 {result.shiftIndex}%</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-[9px] text-gray-400">AI 대체 위험도</p>
+            <p className="text-lg font-black" style={{ color: danger >= 50 ? '#ef4444' : '#f97316' }}>{danger}%</p>
+          </div>
+        </div>
+
+        {/* The Strip */}
+        <div className="space-y-1.5">
+          <p className="text-[9px] text-gray-400">나의 24시간 AI 컬러맵</p>
+          <ColorStrip result={result} height={14} />
+          <StripLegend />
+        </div>
+
+        {/* Stats */}
+        <div className="flex justify-between text-[11px] text-gray-500 bg-gray-50 rounded-lg p-2.5">
+          <span>🔵 획득 {result.timeReport.gainHr}h</span>
+          <span>🔴 잠식 {result.timeReport.erosionHr}h</span>
+          <span>🟢 증강 {result.timeReport.augmentHr}h</span>
+          <span>🟣 고유 {result.timeReport.humanHr}h</span>
+        </div>
+
+        <p className="text-xs text-gray-500">
+          잠재 가치: 연간 {result.economicValueYearly.toLocaleString()}원 상당
+        </p>
+
+        <CtaFooter />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// Twitter / X Card
+// ═══════════════════════════════════
+function TwitterCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
+  const danger = getDangerPercent(result);
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-gray-400 uppercase tracking-wider">X · One-liner</p>
+        <LogoMark />
+      </div>
+
+      {/* Strip + danger */}
+      <div className="space-y-2">
+        <ColorStrip result={result} height={12} />
+        <div className="flex items-center justify-between">
+          <StripLegend />
+          <span className="text-xs font-bold" style={{ color: danger >= 50 ? '#ef4444' : '#f97316' }}>
+            위험 {danger}%
+          </span>
+        </div>
+      </div>
+
+      <div className="p-4 bg-gray-50 rounded-xl">
+        <p className="text-sm text-gray-800 leading-relaxed">{result.oneLinerSummary}</p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span className="text-lg">{result.personaEmoji}</span>
+          <span>{mbti !== 'UNKNOWN' ? `${mbti}: ` : ''}{result.persona}</span>
+        </div>
+      </div>
+
+      <CtaFooter compact />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// Facebook Card
+// ═══════════════════════════════════
+function FacebookCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
+  const danger = getDangerPercent(result);
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-gray-400">Facebook · 유형별 궁합</p>
+        <LogoMark />
+      </div>
+
+      {/* Strip + danger */}
+      <div className="space-y-1.5">
+        <ColorStrip result={result} height={12} />
+        <div className="text-center">
+          <span className="text-xs font-bold" style={{ color: danger >= 50 ? '#ef4444' : '#f97316' }}>
+            AI 대체 위험도 {danger}%
+          </span>
+        </div>
+      </div>
+
+      <div className="text-center space-y-3 py-2">
+        <div className="flex items-center justify-center gap-4">
+          <div className="text-center">
+            <div className="text-4xl">{result.personaEmoji}</div>
+            <p className="text-xs font-medium text-gray-800 mt-1">{result.persona}</p>
+            <p className="text-[10px] text-gray-400">{mbti !== 'UNKNOWN' ? mbti : 'MBTI 모름'}</p>
+          </div>
+          <span className="text-2xl">💕</span>
+          <div className="text-center">
+            <div className="text-4xl">✨</div>
+            <p className="text-xs font-medium text-gray-800 mt-1">{result.compatiblePersona}</p>
+            <p className="text-[10px] text-gray-400">{result.compatibleMBTI}</p>
+          </div>
+        </div>
+        <p className="text-sm text-gray-700">
+          나({result.persona})와 가장 잘 맞는 AI 파트너는<br />
+          <strong>[{result.compatibleMBTI}: {result.compatiblePersona}]</strong>입니다.
+        </p>
+        <p className="text-xs text-gray-400">👉 친구를 태그해보세요!</p>
+      </div>
+
+      <CtaFooter compact />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// Main Share Modal
+// ═══════════════════════════════════
 export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [activeTab, setActiveTab] = useState<ShareTab>('instagram');
   const [copied, setCopied] = useState(false);
@@ -32,7 +350,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     setCapturing(true);
     try {
       const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: '#ffffff',
+        backgroundColor: activeTab === 'instagram' ? '#0f0f12' : '#ffffff',
         scale: 2,
         useCORS: true,
       });
@@ -80,10 +398,9 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
         await navigator.share(shareData);
         return;
       } catch {
-        // user cancelled or failed — fall through to download
+        // user cancelled
       }
     }
-    // Fallback: just download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -98,7 +415,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
     switch (platform) {
       case 'instagram':
-        // Instagram doesn't have a web share URL — download image and prompt user
         await handleDownload();
         window.open('instagram://story-camera', '_blank');
         break;
@@ -160,7 +476,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             {activeTab === 'facebook' && <FacebookCard result={result} mbti={mbti} />}
           </div>
 
-          {/* Loading overlay */}
           {capturing && (
             <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -194,7 +509,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </button>
           </div>
 
-          {/* Platform direct link */}
           <button
             onClick={() => handlePlatformShare(activeTab)}
             className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
@@ -206,150 +520,6 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             {activeTab === 'facebook' && 'Facebook에 공유'}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function InstagramCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
-  return (
-    <div className="bg-gradient-to-br from-primary/5 to-accent rounded-2xl p-6 border border-border/30" style={{ aspectRatio: '9/16', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <div className="text-center space-y-5">
-        <p className="text-[10px] tracking-[0.3em] text-muted-foreground uppercase font-medium">AI Life Shift</p>
-        <div className="text-7xl">{result.personaEmoji}</div>
-        <div>
-          <h4 className="text-lg font-bold text-foreground">
-            나는 AI 시대의 [{mbti === 'UNKNOWN' ? '' : mbti + ': '}{result.persona}]
-          </h4>
-          <p className="text-sm text-muted-foreground mt-1">{result.personaTitle}</p>
-        </div>
-        <div className="text-5xl font-bold text-foreground">
-          {result.shiftIndex}<span className="text-lg text-muted-foreground">%</span>
-        </div>
-        {/* Mini spectrum — rainbow colors matching replacement */}
-        <div className="flex gap-0.5 justify-center">
-          {result.activities.slice(0, 8).map((act, i) => (
-            <div
-              key={i}
-              className="w-6 h-2 rounded-full"
-              style={{ backgroundColor: REPLACEMENT_COLORS[act.replacement_level] }}
-            />
-          ))}
-        </div>
-        {/* Rainbow time bar — same colors as time report */}
-        <div className="flex rounded-full overflow-hidden h-3 mx-4">
-          {(['erosion', 'mixed', 'augment', 'gain', 'human'] as const).map((key) => {
-            const val = result.timeReport[`${key}Hr` as keyof typeof result.timeReport] as number;
-            if (val <= 0) return null;
-            return (
-              <div
-                key={key}
-                className="h-full"
-                style={{
-                  backgroundColor: TIME_CATEGORY_COLORS[key],
-                  width: `${(val / result.timeReport.totalHr) * 100}%`,
-                }}
-              />
-            );
-          })}
-        </div>
-        <p className="text-xs text-muted-foreground mt-4">
-          당신의 AI 시프트 지수는? ▶
-        </p>
-        <p className="text-[9px] text-muted-foreground/60">{SERVICE_URL}</p>
-      </div>
-    </div>
-  );
-}
-
-function NaverBlogCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
-  const monthlySavedHr = Math.round((result.timeReport.gainHr + result.timeReport.augmentHr) * 22);
-  return (
-    <div className="bg-card rounded-2xl border border-border/30 overflow-hidden">
-      <div className="bg-[#03c75a]/10 px-5 py-4">
-        <p className="text-sm font-bold text-foreground">
-          AI를 통해 매월 {monthlySavedHr}시간을 버는 법
-        </p>
-        <p className="text-xs text-muted-foreground mt-0.5">AI Life Shift 진단 리포트</p>
-      </div>
-      <div className="p-5 space-y-3">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl">{result.personaEmoji}</span>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{mbti === 'UNKNOWN' ? '' : mbti + ': '}{result.persona}</p>
-            <p className="text-xs text-muted-foreground">AI 시프트 지수 {result.shiftIndex}%</p>
-          </div>
-        </div>
-        {/* Rainbow bar — same colors */}
-        <div className="flex rounded-full overflow-hidden h-3">
-          {result.activities.map((act, i) => (
-            <div
-              key={i}
-              className="h-full"
-              style={{
-                backgroundColor: REPLACEMENT_COLORS[act.replacement_level],
-                width: `${(act.original_duration_hr / result.timeReport.totalHr) * 100}%`,
-              }}
-            />
-          ))}
-        </div>
-        <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>획득 {result.timeReport.gainHr}시간</span>
-          <span>잠식 {result.timeReport.erosionHr}시간</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          생산성 변화: 연간 {result.economicValueYearly.toLocaleString()}원 상당
-        </p>
-        <p className="text-[9px] text-muted-foreground/60 text-right">{SERVICE_URL}</p>
-      </div>
-    </div>
-  );
-}
-
-function TwitterCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
-  return (
-    <div className="bg-card rounded-2xl border border-border/30 p-5 space-y-4">
-      <p className="text-xs text-muted-foreground">X (Twitter) & Threads · 한 줄 요약</p>
-      <div className="p-4 bg-secondary/50 rounded-xl">
-        <p className="text-sm text-foreground leading-relaxed">
-          {result.oneLinerSummary}
-        </p>
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="text-lg">{result.personaEmoji}</span>
-          <span>{mbti === 'UNKNOWN' ? '' : mbti + ': '}{result.persona}</span>
-        </div>
-        <p className="text-[9px] text-muted-foreground/60">{SERVICE_URL}</p>
-      </div>
-    </div>
-  );
-}
-
-function FacebookCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
-  return (
-    <div className="bg-card rounded-2xl border border-border/30 p-5 space-y-4">
-      <p className="text-xs text-muted-foreground">Facebook · 유형별 궁합 공유</p>
-      <div className="text-center space-y-3 py-4">
-        <div className="flex items-center justify-center gap-4">
-          <div className="text-center">
-            <div className="text-4xl">{result.personaEmoji}</div>
-            <p className="text-xs font-medium text-foreground mt-1">{result.persona}</p>
-            <p className="text-[10px] text-muted-foreground">{mbti === 'UNKNOWN' ? 'MBTI 모름' : mbti}</p>
-          </div>
-          <span className="text-2xl">💕</span>
-          <div className="text-center">
-            <div className="text-4xl">✨</div>
-            <p className="text-xs font-medium text-foreground mt-1">{result.compatiblePersona}</p>
-            <p className="text-[10px] text-muted-foreground">{result.compatibleMBTI}</p>
-          </div>
-        </div>
-        <p className="text-sm text-foreground">
-          나({result.persona})와 가장 잘 맞는 AI 파트너는<br />
-          <strong>[{result.compatibleMBTI}: {result.compatiblePersona}]</strong>입니다.
-        </p>
-        <p className="text-xs text-muted-foreground">👉 친구를 태그해보세요!</p>
-        <p className="text-[9px] text-muted-foreground/60">{SERVICE_URL}</p>
       </div>
     </div>
   );
