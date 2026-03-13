@@ -103,19 +103,33 @@ function getPersonaInfo(mbti: string, activeRatio?: number) {
 
 export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
   const activities: AnalyzedActivity[] = routines.map((r) => {
-    const { category, involvement, isHighCognitive } = classifyActivity(r.activity);
+    const { category, involvement, isHighCognitive, forcedReplacementScore } = classifyActivity(r.activity);
     const C = COMPRESSION_RATES[category];
     const A = AGENCY_RATES[involvement];
-    const E = involvement === 'none' ? 0 : 1;
 
-    const savedTime = Math.min(r.duration * (1 - 1 / C) * E, r.duration * 0.9);
+    let savedTime: number;
+    if (involvement === 'passive') {
+      // AI 잠식: stolen_time — 전체 시간이 빼앗긴 시간
+      savedTime = 0; // 획득 없음, 잠식만 있음
+    } else if (involvement === 'none') {
+      // 인간 고유: AI 개입 없음
+      savedTime = 0;
+    } else {
+      // AI 증강/획득: 압축으로 절약
+      savedTime = Math.min(r.duration * (1 - 1 / C), r.duration * 0.9);
+    }
     const agencyAdjusted = savedTime * A;
 
-    let repScore = REPLACEMENT_BASE[category];
-    if (involvement === 'active') repScore += 10;
-    if (involvement === 'passive') repScore -= 5;
-    if (isHighCognitive) repScore -= 10;
-    repScore = Math.max(0, Math.min(100, repScore));
+    let repScore: number;
+    if (forcedReplacementScore !== undefined) {
+      repScore = forcedReplacementScore;
+    } else {
+      repScore = REPLACEMENT_BASE[category];
+      if (involvement === 'active') repScore += 10;
+      if (involvement === 'passive') repScore -= 5;
+      if (isHighCognitive) repScore -= 10;
+      repScore = Math.max(0, Math.min(100, repScore));
+    }
 
     return {
       activity: r.activity,
@@ -125,8 +139,8 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
       category,
       is_high_cognitive: isHighCognitive,
       compression_ratio: C,
-      saved_time_hr: Math.round(savedTime * 10) / 10,
-      agency_adjusted_hr: Math.round(agencyAdjusted * 10) / 10,
+      saved_time_hr: Math.round(savedTime),
+      agency_adjusted_hr: Math.round(agencyAdjusted),
       replacement_score: repScore,
       replacement_level: getReplacementLevel(repScore),
     };
