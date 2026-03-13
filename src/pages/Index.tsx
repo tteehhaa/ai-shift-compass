@@ -63,8 +63,13 @@ export default function Index() {
   const handleAnalysisComplete = useCallback(() => {
     const res = analyzeRoutines(routines, mbti);
     setResult(res);
-    setStep("result");
+    setStep("emailGate");
   }, [routines, mbti]);
+
+  const handleEmailGateContinue = () => {
+    setStep("result");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleReset = () => {
     setStep("input");
