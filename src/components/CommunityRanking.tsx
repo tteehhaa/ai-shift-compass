@@ -1,31 +1,27 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy } from "lucide-react";
 import type { AnalyzedActivity } from "@/lib/types";
-import { REPLACEMENT_COLORS } from "@/lib/analysis-engine";
 
 interface CommunityRankingProps {
   activities: AnalyzedActivity[];
 }
 
-interface RankingItem {
-  activity_name: string;
-  replacement_score: number;
-  replacement_level: string;
-  count: number;
+interface CategoryTop {
+  label: string;
+  activity: string;
+  color: string;
 }
 
-// Save high-score activities to the ranking table
+// Save activities to ranking table
 export async function saveActivitiesToRanking(activities: AnalyzedActivity[]) {
-  const highScoreActivities = activities.filter(
-    (a) => a.replacement_score >= 60 && a.replacement_level !== "human"
+  const validActivities = activities.filter(
+    (a) => a.activity.trim() && a.replacement_level !== "human"
   );
 
-  for (const act of highScoreActivities) {
+  for (const act of validActivities) {
     const name = act.activity.trim();
     if (!name) continue;
 
-    // Try to upsert: increment count if exists, insert if not
     const { data: existing } = await supabase
       .from("activity_rankings")
       .select("id, count")
@@ -51,69 +47,91 @@ export async function saveActivitiesToRanking(activities: AnalyzedActivity[]) {
   }
 }
 
+// Map replacement_level to 3 categories
+function getCategory(level: string): "risk" | "assist" | "human" | null {
+  if (["critical", "high"].includes(level)) return "risk";
+  if (["medium", "low", "assist"].includes(level)) return "assist";
+  if (level === "human") return "human";
+  return null;
+}
+
 export default function CommunityRanking({ activities }: CommunityRankingProps) {
-  const [rankings, setRankings] = useState<RankingItem[]>([]);
+  const [items, setItems] = useState<CategoryTop[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Save current user's activities
     saveActivitiesToRanking(activities);
 
-    // Fetch top rankings
-    const fetchRankings = async () => {
+    const fetchData = async () => {
       const { data, error } = await supabase
         .from("activity_rankings")
-        .select("activity_name, replacement_score, replacement_level, count")
-        .order("count", { ascending: false })
-        .limit(3);
+        .select("activity_name, replacement_level, count")
+        .order("count", { ascending: false });
 
-      if (!error && data) {
-        setRankings(data);
+      if (error || !data) {
+        setLoading(false);
+        return;
       }
+
+      const buckets: Record<string, { activity: string; count: number }> = {};
+
+      for (const row of data) {
+        const cat = getCategory(row.replacement_level);
+        if (!cat) continue;
+        if (!buckets[cat] || row.count > buckets[cat].count) {
+          buckets[cat] = { activity: row.activity_name, count: row.count };
+        }
+      }
+
+      const config: Record<string, { label: string; color: string }> = {
+        risk: { label: "AI 대체 위험", color: "hsl(0, 72%, 51%)" },
+        assist: { label: "AI 보조 활용", color: "hsl(45, 93%, 47%)" },
+        human: { label: "인간 고유 영역", color: "hsl(142, 71%, 45%)" },
+      };
+
+      const result: CategoryTop[] = [];
+      for (const key of ["risk", "assist", "human"] as const) {
+        if (buckets[key]) {
+          result.push({
+            label: config[key].label,
+            activity: buckets[key].activity,
+            color: config[key].color,
+          });
+        }
+      }
+
+      setItems(result);
       setLoading(false);
     };
 
-    fetchRankings();
+    fetchData();
   }, []);
 
-  if (loading || rankings.length === 0) return null;
-
-  const medals = ["🥇", "🥈", "🥉"];
+  if (loading || items.length === 0) return null;
 
   return (
-    <div className="glass-card rounded-3xl p-8">
-      <div className="text-center mb-5">
-        <Trophy className="w-6 h-6 mx-auto mb-2 text-amber-500" />
-        <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-1">Community Insight</p>
-        <h3 className="text-base font-bold text-foreground">다른 유저들이 가장 많이 대체하는 업무</h3>
-      </div>
+    <div className="glass-card rounded-3xl p-6">
+      <p className="text-[11px] font-medium text-muted-foreground tracking-widest uppercase mb-4">
+        전체 진단 통계 (Live Data)
+      </p>
 
-      <div className="space-y-3">
-        {rankings.map((item, i) => {
-          const color = REPLACEMENT_COLORS[item.replacement_level] || REPLACEMENT_COLORS.high;
-          return (
-            <div
-              key={item.activity_name}
-              className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50"
-            >
-              <span className="text-xl shrink-0">{medals[i]}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{item.activity_name}</p>
-                <p className="text-[11px] text-muted-foreground">{item.count}명이 입력</p>
-              </div>
+      <div className="divide-y divide-border">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+            <div className="flex items-center gap-2">
               <span
-                className="text-xs font-bold px-2.5 py-1 rounded-full text-white shrink-0"
-                style={{ backgroundColor: color }}
-              >
-                {item.replacement_score}%
-              </span>
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="text-xs text-muted-foreground">{item.label}</span>
             </div>
-          );
-        })}
+            <span className="text-xs font-semibold text-foreground">{item.activity}</span>
+          </div>
+        ))}
       </div>
 
-      <p className="text-[10px] text-muted-foreground/50 text-center mt-4">
-        * 전체 참여자의 활동 데이터를 기반으로 집계됩니다
+      <p className="text-[10px] text-muted-foreground/50 text-right mt-3">
+        실시간 누적 진단 데이터 기준
       </p>
     </div>
   );
