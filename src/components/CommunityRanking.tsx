@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { AnalyzedActivity } from "@/lib/types";
+import { Trophy } from "lucide-react";
 
 interface CommunityRankingProps {
   activities: AnalyzedActivity[];
 }
 
-interface CategoryTop {
-  label: string;
-  activity: string;
-  color: string;
+interface RankedActivity {
+  activity_name: string;
+  replacement_score: number;
+  count: number;
 }
 
 // Save activities to ranking table
@@ -47,16 +48,10 @@ export async function saveActivitiesToRanking(activities: AnalyzedActivity[]) {
   }
 }
 
-// Map replacement_level to 3 categories
-function getCategory(level: string): "risk" | "assist" | "human" | null {
-  if (["critical", "high"].includes(level)) return "risk";
-  if (["medium", "low", "assist"].includes(level)) return "assist";
-  if (level === "human") return "human";
-  return null;
-}
+const MEDAL_COLORS = ["hsl(45, 93%, 47%)", "hsl(0, 0%, 70%)", "hsl(25, 60%, 45%)"];
 
 export default function CommunityRanking({ activities }: CommunityRankingProps) {
-  const [items, setItems] = useState<CategoryTop[]>([]);
+  const [items, setItems] = useState<RankedActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,42 +60,16 @@ export default function CommunityRanking({ activities }: CommunityRankingProps) 
     const fetchData = async () => {
       const { data, error } = await supabase
         .from("activity_rankings")
-        .select("activity_name, replacement_level, count")
-        .order("count", { ascending: false });
+        .select("activity_name, replacement_score, count")
+        .order("count", { ascending: false })
+        .limit(3);
 
       if (error || !data) {
         setLoading(false);
         return;
       }
 
-      const buckets: Record<string, { activity: string; count: number }> = {};
-
-      for (const row of data) {
-        const cat = getCategory(row.replacement_level);
-        if (!cat) continue;
-        if (!buckets[cat] || row.count > buckets[cat].count) {
-          buckets[cat] = { activity: row.activity_name, count: row.count };
-        }
-      }
-
-      const config: Record<string, { label: string; color: string }> = {
-        risk: { label: "AI 대체 위험", color: "hsl(0, 72%, 51%)" },
-        assist: { label: "AI 보조 활용", color: "hsl(45, 93%, 47%)" },
-        human: { label: "인간 고유 영역", color: "hsl(142, 71%, 45%)" },
-      };
-
-      const result: CategoryTop[] = [];
-      for (const key of ["risk", "assist", "human"] as const) {
-        if (buckets[key]) {
-          result.push({
-            label: config[key].label,
-            activity: buckets[key].activity,
-            color: config[key].color,
-          });
-        }
-      }
-
-      setItems(result);
+      setItems(data);
       setLoading(false);
     };
 
@@ -110,28 +79,42 @@ export default function CommunityRanking({ activities }: CommunityRankingProps) 
   if (loading || items.length === 0) return null;
 
   return (
-    <div className="glass-card rounded-3xl p-6">
-      <p className="text-[11px] font-medium text-muted-foreground tracking-widest uppercase mb-4">
-        전체 진단 통계 (Live Data)
+    <div className="glass-card rounded-3xl p-8 text-center">
+      <Trophy className="w-8 h-8 mx-auto mb-3" style={{ color: "hsl(25, 90%, 50%)" }} />
+      <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-2">
+        Community Insight
       </p>
+      <h3 className="text-lg font-bold text-foreground mb-6">
+        다른 유저들이 가장 많이 대체하는 업무
+      </h3>
 
-      <div className="divide-y divide-border">
-        {items.map((item) => (
-          <div key={item.label} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-            <div className="flex items-center gap-2">
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className="text-xs text-muted-foreground">{item.label}</span>
+      <div className="space-y-3">
+        {items.map((item, i) => (
+          <div
+            key={item.activity_name}
+            className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-secondary/50"
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: MEDAL_COLORS[i] + "22" }}>
+              <span className="text-sm font-bold" style={{ color: MEDAL_COLORS[i] }}>
+                {i + 1}
+              </span>
             </div>
-            <span className="text-xs font-semibold text-foreground">{item.activity}</span>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{item.activity_name}</p>
+              <p className="text-xs text-muted-foreground">{item.count}명이 입력</p>
+            </div>
+            <span
+              className="text-xs font-bold px-3 py-1.5 rounded-full text-white shrink-0"
+              style={{ backgroundColor: "hsl(0, 72%, 51%)" }}
+            >
+              {item.replacement_score}%
+            </span>
           </div>
         ))}
       </div>
 
-      <p className="text-[10px] text-muted-foreground/50 text-right mt-3">
-        실시간 누적 진단 데이터 기준
+      <p className="text-[11px] text-muted-foreground/50 mt-5">
+        * 전체 참여자의 활동 데이터를 기반으로 집계됩니다
       </p>
     </div>
   );
