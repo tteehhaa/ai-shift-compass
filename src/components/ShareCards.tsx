@@ -154,8 +154,8 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
         <span className="text-[10px] text-gray-400 font-medium">AI 시프트 진단</span>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center space-y-5">
-        <div className="text-center space-y-1">
-          <div className="text-5xl mb-2">{result.personaEmoji}</div>
+        <div className="text-center space-y-2">
+          <div className="text-5xl mb-4">{result.personaEmoji}</div>
           <p className="text-gray-400 text-[10px] tracking-[0.2em] uppercase">My AI Persona</p>
           <h3 className="text-gray-900 text-lg font-bold">
             {mbti !== "UNKNOWN" ? `${mbti}: ` : ""}
