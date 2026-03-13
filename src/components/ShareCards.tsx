@@ -413,10 +413,10 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             <ShareCard result={result} mbti={mbti} />
           </div>
 
-          {capturing && (
+          {(capturing || savingLink) && (
             <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              공유 이미지를 생성 중입니다...
+              {savingLink ? "링크 생성 중..." : "공유 이미지를 생성 중입니다..."}
             </div>
           )}
 
