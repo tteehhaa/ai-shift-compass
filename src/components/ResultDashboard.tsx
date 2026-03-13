@@ -142,7 +142,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <div className="glass-card rounded-2xl p-4 space-y-3">
             {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
               <div key={key} className="flex items-start gap-3">
-                <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color }} />
+                <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color as string }} />
                 <div>
                   <p className="text-xs font-semibold text-foreground">{REPLACEMENT_LABELS[key]}</p>
                   <p className="text-[11px] text-muted-foreground">{REPLACEMENT_DESCRIPTIONS[key]}</p>
