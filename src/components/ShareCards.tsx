@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import type { AnalysisResult } from '@/lib/types';
-import { X, Instagram, Twitter, Facebook, Copy, Check, Download, Share2 } from 'lucide-react';
+import { X, Instagram, Twitter, Facebook, Copy, Check, Download, Share2, Loader2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { REPLACEMENT_COLORS, TIME_CATEGORY_COLORS } from '@/lib/analysis-engine';
+
+const SERVICE_URL = 'https://ai-shift-compass.lovable.app';
 
 interface ShareCardsProps {
   result: AnalysisResult;
@@ -53,22 +55,62 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     URL.revokeObjectURL(url);
   };
 
+  const getShareText = () => {
+    const base = activeTab === 'twitter'
+      ? result.oneLinerSummary
+      : `나의 AI 시프트 지수는 ${result.shiftIndex}%! 나는 ${mbti === 'UNKNOWN' ? '' : mbti + ': '}${result.persona}. ${result.oneLinerSummary}`;
+    return `${base}\n\n👉 당신의 AI 페르소나는? ${SERVICE_URL}`;
+  };
+
   const handleNativeShare = async () => {
+    setCapturing(true);
     const blob = await captureCard();
+    setCapturing(false);
     if (!blob) return;
+
     const file = new File([blob], 'ai-life-shift.png', { type: 'image/png' });
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    const shareData = {
+      title: 'AI Life Shift 진단 결과',
+      text: getShareText(),
+      files: [file],
+    };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
       try {
-        await navigator.share({
-          title: 'AI Life Shift 진단 결과',
-          text: result.oneLinerSummary,
-          files: [file],
-        });
+        await navigator.share(shareData);
+        return;
       } catch {
-        // user cancelled
+        // user cancelled or failed — fall through to download
       }
-    } else {
-      handleDownload();
+    }
+    // Fallback: just download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ai-life-shift.png';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePlatformShare = async (platform: string) => {
+    const text = encodeURIComponent(getShareText());
+    const url = encodeURIComponent(SERVICE_URL);
+
+    switch (platform) {
+      case 'instagram':
+        // Instagram doesn't have a web share URL — download image and prompt user
+        await handleDownload();
+        window.open('instagram://story-camera', '_blank');
+        break;
+      case 'naver':
+        window.open(`https://blog.naver.com/openapi/share?url=${url}&title=${text}`, '_blank');
+        break;
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+        break;
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
+        break;
     }
   };
 
@@ -118,6 +160,14 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             {activeTab === 'facebook' && <FacebookCard result={result} mbti={mbti} />}
           </div>
 
+          {/* Loading overlay */}
+          {capturing && (
+            <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              공유 이미지를 생성 중입니다...
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="mt-4 flex gap-2">
             <button
@@ -137,17 +187,24 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
               저장
             </button>
             <button
-              onClick={() => {
-                const text = activeTab === 'twitter'
-                  ? result.oneLinerSummary
-                  : `나의 AI 시프트 지수는 ${result.shiftIndex}%! 나는 ${mbti === 'UNKNOWN' ? '' : mbti + ': '}${result.persona}. ${result.oneLinerSummary}`;
-                handleCopy(text);
-              }}
+              onClick={() => handleCopy(getShareText())}
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-accent transition-colors"
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </button>
           </div>
+
+          {/* Platform direct link */}
+          <button
+            onClick={() => handlePlatformShare(activeTab)}
+            className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            {activeTab === 'instagram' && '이미지 저장 후 인스타그램으로 이동'}
+            {activeTab === 'naver' && '네이버 블로그에 공유'}
+            {activeTab === 'twitter' && 'X(Twitter)에 공유'}
+            {activeTab === 'facebook' && 'Facebook에 공유'}
+          </button>
         </div>
       </div>
     </div>
@@ -169,7 +226,7 @@ function InstagramCard({ result, mbti }: { result: AnalysisResult; mbti: string 
         <div className="text-5xl font-bold text-foreground">
           {result.shiftIndex}<span className="text-lg text-muted-foreground">%</span>
         </div>
-        {/* Mini spectrum */}
+        {/* Mini spectrum — rainbow colors matching replacement */}
         <div className="flex gap-0.5 justify-center">
           {result.activities.slice(0, 8).map((act, i) => (
             <div
@@ -179,9 +236,9 @@ function InstagramCard({ result, mbti }: { result: AnalysisResult; mbti: string 
             />
           ))}
         </div>
-        {/* Rainbow time bar */}
+        {/* Rainbow time bar — same colors as time report */}
         <div className="flex rounded-full overflow-hidden h-3 mx-4">
-          {(['gain', 'erosion', 'augment', 'mixed', 'human'] as const).map((key) => {
+          {(['erosion', 'mixed', 'augment', 'gain', 'human'] as const).map((key) => {
             const val = result.timeReport[`${key}Hr` as keyof typeof result.timeReport] as number;
             if (val <= 0) return null;
             return (
@@ -199,6 +256,7 @@ function InstagramCard({ result, mbti }: { result: AnalysisResult; mbti: string 
         <p className="text-xs text-muted-foreground mt-4">
           당신의 AI 시프트 지수는? ▶
         </p>
+        <p className="text-[9px] text-muted-foreground/60">{SERVICE_URL}</p>
       </div>
     </div>
   );
@@ -222,7 +280,7 @@ function NaverBlogCard({ result, mbti }: { result: AnalysisResult; mbti: string 
             <p className="text-xs text-muted-foreground">AI 시프트 지수 {result.shiftIndex}%</p>
           </div>
         </div>
-        {/* Rainbow bar */}
+        {/* Rainbow bar — same colors */}
         <div className="flex rounded-full overflow-hidden h-3">
           {result.activities.map((act, i) => (
             <div
@@ -242,6 +300,7 @@ function NaverBlogCard({ result, mbti }: { result: AnalysisResult; mbti: string 
         <p className="text-xs text-muted-foreground">
           생산성 변화: 연간 {result.economicValueYearly.toLocaleString()}원 상당
         </p>
+        <p className="text-[9px] text-muted-foreground/60 text-right">{SERVICE_URL}</p>
       </div>
     </div>
   );
@@ -256,9 +315,12 @@ function TwitterCard({ result, mbti }: { result: AnalysisResult; mbti: string })
           {result.oneLinerSummary}
         </p>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="text-lg">{result.personaEmoji}</span>
-        <span>{mbti === 'UNKNOWN' ? '' : mbti + ': '}{result.persona}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="text-lg">{result.personaEmoji}</span>
+          <span>{mbti === 'UNKNOWN' ? '' : mbti + ': '}{result.persona}</span>
+        </div>
+        <p className="text-[9px] text-muted-foreground/60">{SERVICE_URL}</p>
       </div>
     </div>
   );
@@ -287,6 +349,7 @@ function FacebookCard({ result, mbti }: { result: AnalysisResult; mbti: string }
           <strong>[{result.compatibleMBTI}: {result.compatiblePersona}]</strong>입니다.
         </p>
         <p className="text-xs text-muted-foreground">👉 친구를 태그해보세요!</p>
+        <p className="text-[9px] text-muted-foreground/60">{SERVICE_URL}</p>
       </div>
     </div>
   );
