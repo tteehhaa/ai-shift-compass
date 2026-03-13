@@ -10,6 +10,7 @@ interface CommunityRankingProps {
 
 interface RankedActivity {
   activity_name: string;
+  replacement_level: string;
   replacement_score: number;
   count: number;
 }
