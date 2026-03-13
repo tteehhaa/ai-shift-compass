@@ -376,7 +376,7 @@ export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
 // Time report colors — badge 색상과 1:1 매핑
 export const TIME_CATEGORY_COLORS: Record<string, string> = {
   gain:    '#3b82f6', // 파랑 (= assist)
-  erosion: '#f97316', // 주황 (= high)
+  erosion: '#ef4444', // 빨강 (= critical/high)
   augment: '#22c55e', // 초록 (= low)
   mixed:   '#eab308', // 노랑 (= medium)
   human:   '#8b5cf6', // 보라 (= human)
