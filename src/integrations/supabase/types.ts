@@ -38,6 +38,27 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_results: {
+        Row: {
+          created_at: string
+          id: string
+          mbti: string
+          result_data: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mbti: string
+          result_data: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mbti?: string
+          result_data?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
