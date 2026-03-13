@@ -142,7 +142,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <div className="glass-card rounded-2xl p-4 space-y-3">
             {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
               <div key={key} className="flex items-start gap-3">
-                <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color }} />
+                <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color as string }} />
                 <div>
                   <p className="text-xs font-semibold text-foreground">{REPLACEMENT_LABELS[key]}</p>
                   <p className="text-[11px] text-muted-foreground">{REPLACEMENT_DESCRIPTIONS[key]}</p>
@@ -154,7 +154,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <div className="flex flex-wrap gap-3 justify-center">
             {Object.entries(REPLACEMENT_COLORS).map(([key, color]) => (
               <div key={key} className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color as string }} />
                 <span className="text-[11px] text-muted-foreground">{REPLACEMENT_LABELS[key]}</span>
               </div>
             ))}
@@ -234,7 +234,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           <div className="mt-4 p-4 rounded-xl bg-secondary/30 space-y-2">
             {Object.entries(TIME_CATEGORY_COLORS).map(([key, color]) => (
               <div key={key} className="flex items-start gap-2">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color }} />
+                <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color as string }} />
                 <div>
                   <p className="text-xs font-medium text-foreground">{TIME_CATEGORY_LABELS[key]}</p>
                   <p className="text-[11px] text-muted-foreground">{TIME_CATEGORY_DESCRIPTIONS[key]}</p>
