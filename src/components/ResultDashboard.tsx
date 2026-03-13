@@ -245,7 +245,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
             <div className="flex items-baseline justify-between mb-2">
               <span className="text-sm text-muted-foreground">일간 기회비용 손실</span>
-              <CountUp end={erosionDaily} prefix="-" suffix="원" className="text-2xl font-bold" style={{ color: TIME_CATEGORY_COLORS.erosion }} formatter={(n) => n.toLocaleString()} />
+              <span style={{ color: TIME_CATEGORY_COLORS.erosion }}><CountUp end={erosionDaily} prefix="-" suffix="원" className="text-2xl font-bold" formatter={(n) => n.toLocaleString()} /></span>
             </div>
 
             <div className="rounded-2xl p-4 bg-white/60 border border-destructive/10 mt-3">
