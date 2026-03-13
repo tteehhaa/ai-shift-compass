@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp } from "lucide-react";
+import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import CountUp from "@/components/CountUp";
 
 interface RankingItem {
@@ -74,6 +75,30 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/admin");
+  };
+
+  const handleDeleteRanking = async (activityName: string) => {
+    if (!confirm(`"${activityName}" 항목을 삭제하시겠습니까?`)) return;
+    const { error } = await supabase.from("activity_rankings").delete().eq("activity_name", activityName);
+    if (error) { toast.error("삭제 실패"); return; }
+    setRankings((prev) => prev.filter((r) => r.activity_name !== activityName));
+    toast.success("삭제되었습니다");
+  };
+
+  const handleDeleteSubscriber = async (id: string) => {
+    if (!confirm("이 구독자를 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("email_subscribers").delete().eq("id", id);
+    if (error) { toast.error("삭제 실패"); return; }
+    setSubscribers((prev) => prev.filter((s) => s.id !== id));
+    toast.success("삭제되었습니다");
+  };
+
+  const handleDeleteShare = async (id: string) => {
+    if (!confirm("이 공유 결과를 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("shared_results").delete().eq("id", id);
+    if (error) { toast.error("삭제 실패"); return; }
+    setSharedResults((prev) => prev.filter((s) => s.id !== id));
+    toast.success("삭제되었습니다");
   };
 
   if (loading) {
@@ -228,9 +253,8 @@ export default function AdminDashboard() {
                     <p className="text-[11px] text-muted-foreground">{item.category} · {item.replacement_level}</p>
                   </div>
                   <span className="text-sm font-bold text-foreground">{item.count}회</span>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                    {item.replacement_score}%
-                  </span>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.replacement_score}%</span>
+                  <button onClick={() => handleDeleteRanking(item.activity_name)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               ))}
               {rankings.length === 0 && (
@@ -250,10 +274,11 @@ export default function AdminDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30 text-muted-foreground">
-                    <th className="text-left px-5 py-3 font-medium">이메일</th>
-                    <th className="text-left px-5 py-3 font-medium">MBTI</th>
-                    <th className="text-left px-5 py-3 font-medium">시프트 지수</th>
-                    <th className="text-left px-5 py-3 font-medium">가입일</th>
+                     <th className="text-left px-5 py-3 font-medium">이메일</th>
+                     <th className="text-left px-5 py-3 font-medium">MBTI</th>
+                     <th className="text-left px-5 py-3 font-medium">시프트 지수</th>
+                     <th className="text-left px-5 py-3 font-medium">가입일</th>
+                     <th className="text-right px-5 py-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -264,6 +289,9 @@ export default function AdminDashboard() {
                       <td className="px-5 py-3">{sub.shift_index ? `${sub.shift_index}%` : "-"}</td>
                       <td className="px-5 py-3 text-muted-foreground">
                         {new Date(sub.created_at).toLocaleDateString("ko-KR")}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button onClick={() => handleDeleteSubscriber(sub.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
                   ))}
@@ -291,7 +319,10 @@ export default function AdminDashboard() {
                       {new Date(share.created_at).toLocaleString("ko-KR")}
                     </p>
                   </div>
-                  <span className="text-[11px] text-muted-foreground font-mono">{share.id.slice(0, 8)}...</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-muted-foreground font-mono">{share.id.slice(0, 8)}...</span>
+                    <button onClick={() => handleDeleteShare(share.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
               ))}
               {sharedResults.length === 0 && (
