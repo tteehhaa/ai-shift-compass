@@ -29,6 +29,13 @@ function formatDuration(d: number): string {
   return h > 0 ? `${h}시간 ${m}분` : `${m}분`;
 }
 
+function addTime(time: string, hours: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const totalMinutes = h * 60 + m + hours * 60;
+  const newH = Math.floor(totalMinutes % (24 * 60) / 60);
+  const newM = totalMinutes % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
@@ -179,9 +186,10 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
   }, []);
 
   const addRoutine = () => {
-    const newRoutine: RoutineEntry = { time: '09:00', activity: '', duration: 1, tag: '➕ 기타' };
-    const updated = sortByTime([...routines, newRoutine]);
-    onChange(updated);
+    const last = routines[routines.length - 1];
+    const nextTime = last ? addTime(last.time, last.duration) : '09:00';
+    const newRoutine: RoutineEntry = { time: nextTime, activity: '', duration: 1, tag: '➕ 기타' };
+    onChange([...routines, newRoutine]);
   };
 
   const updateRoutine = (index: number, field: keyof RoutineEntry, value: string | number | TagCategory) => {
