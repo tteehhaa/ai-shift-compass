@@ -29,7 +29,14 @@ function formatDuration(d: number): string {
   return h > 0 ? `${h}시간 ${m}분` : `${m}분`;
 }
 
-function timeToMinutes(time: string): number {
+function addTime(time: string, hours: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const totalMinutes = h * 60 + m + hours * 60;
+  const newH = Math.floor(totalMinutes % (24 * 60) / 60);
+  const newM = totalMinutes % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
+
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }
