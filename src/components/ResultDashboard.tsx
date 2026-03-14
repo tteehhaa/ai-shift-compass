@@ -10,15 +10,7 @@ import {
   TIME_CATEGORY_DESCRIPTIONS,
 } from "@/lib/analysis-engine";
 import { cn } from "@/lib/utils";
-import {
-  TrendingUp,
-  Clock,
-  Share2,
-  Info,
-  ChevronDown,
-  ChevronUp,
-  Coffee,
-} from "lucide-react";
+import { TrendingUp, Clock, Share2, Info, ChevronDown, ChevronUp, Coffee } from "lucide-react";
 import EmailSignup from "@/components/EmailSignup";
 import CountUp from "@/components/CountUp";
 
@@ -45,7 +37,7 @@ function getAnnualMetaphor(yearly: number): string {
 
 // 수정됨: 휴식/운동 대신 경쟁력/자기계발 강조로 변경
 function getErosionMetaphor(erosionHr: number): string {
-  if (erosionHr >= 2) return `이 시간이면 AI 도구를 학습해 본인의 업무 경쟁력을 2배 이상 높일 수 있었습니다.`;
+  if (erosionHr >= 2) return `이 시간이면 AI를 학습해 업무 경쟁력을 2배 이상 높일 수 있습니다.`;
   if (erosionHr >= 1) return `AI가 내 업무를 대체하기 전, 나만의 고유한 역량을 키울 수 있는 귀중한 시간입니다.`;
   return `단순 작업에 매몰되어 발생하는 치명적인 기회비용입니다.`;
 }
@@ -71,7 +63,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
   const timeGroups = [
     {
-      label: "위험 · AI 영향",
+      label: "위험 · 잠식",
       items: [{ key: "erosion" as const, hr: result.timeReport.erosionHr }],
       color: TIME_CATEGORY_COLORS.erosion,
     },
@@ -327,7 +319,9 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {/* Insight Box */}
           <div className="rounded-2xl p-4 bg-white/60 border border-blue-200/50 mt-4">
             <p className="text-sm text-foreground leading-relaxed">
-              🚀 AI 도구를 활용해 하루 <strong>{(result.timeReport.gainHr + result.timeReport.augmentHr).toFixed(1)}시간</strong>의 생산성을 확보하고 있습니다.
+              🚀 AI 도구를 활용해 하루{" "}
+              <strong>{(result.timeReport.gainHr + result.timeReport.augmentHr).toFixed(1)}시간</strong>의 생산성을
+              확보하고 있습니다.
             </p>
             <span className="text-muted-foreground text-xs mt-1 block">
               {getAnnualMetaphor(result.economicValueYearly)}
@@ -355,7 +349,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* 🚨 AI 영향력 카드 */}
+      {/* 🚨 잠식 손실 카드 */}
       {result.timeReport.erosionHr > 0 && (
         <div className="rounded-3xl overflow-hidden border-2" style={{ borderColor: "hsl(0 70% 55% / 0.3)" }}>
           <div className="p-6" style={{ background: "linear-gradient(135deg, hsl(0 70% 97%), hsl(30 80% 96%))" }}>
@@ -379,7 +373,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
               </span>
             </div>
             <div className="flex items-center gap-1.5 justify-end mb-4">
-              <span className="text-xs text-muted-foreground">⏱️ {result.timeReport.erosionHr}시간 AI 영향력</span>
+              <span className="text-xs text-muted-foreground">⏱️ {result.timeReport.erosionHr}시간 잠식</span>
             </div>
 
             {/* Monthly */}
@@ -399,21 +393,24 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             {/* Insight Box + AI 역제안 */}
             <div className="rounded-2xl p-4 bg-white/60 border border-red-200/50 mt-0">
               <p className="text-sm text-foreground leading-relaxed">
-                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI 도구를 활용하면 이 작업을 훨씬 효율적으로 마무리하고 개인 시간을 확보할 수 있습니다.
+                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 작업에 매달리고
+                있습니다.
               </p>
               <span className="text-muted-foreground text-xs mt-1 block">
                 {getErosionMetaphor(result.timeReport.erosionHr)}
               </span>
               {result.recommendations && result.recommendations.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border/30">
-                  <p className="text-sm font-semibold text-foreground mb-3">💡 AI 역제안</p>
-                  <div className="flex items-start gap-3 rounded-xl bg-white/50 border border-border/30 p-3">
-                    <span className="text-lg shrink-0">{result.recommendations[0].icon}</span>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{result.recommendations[0].tool}</p>
-                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{result.recommendations[0].reason}</p>
+                <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
+                  <p className="text-sm font-semibold text-foreground">💡 AI 역제안</p>
+                  {result.recommendations.map((rec, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-xl bg-white/50 border border-border/30 p-3">
+                      <span className="text-lg shrink-0">{rec.icon}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{rec.tool}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{rec.reason}</p>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -431,11 +428,11 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 className="text-3xl font-black text-white"
                 formatter={(n) => n.toLocaleString()}
               />
-              <p className="text-xs text-white/80 mt-1">AI를 활용해 더 가치 있는 시간을 만들어보세요</p>
+              <p className="text-xs text-white/80 mt-1">단순 업무에서 벗어나 진짜 경쟁력을 키우세요</p>
             </div>
 
             <p className="text-[10px] text-muted-foreground/50 mt-3 text-center">
-              * 알고리즘 기반 콘텐츠 소비는 1.2배 가중 적용
+              * 도파민 잠식 활동은 1.2배 가중 적용
             </p>
           </div>
         </div>
@@ -443,13 +440,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
       {/* 업무 방식 혁신 제안 — Center-aligned data card */}
       <div className="glass-card rounded-3xl p-8 text-center">
-        <div className="text-5xl mb-4">
-          {result.needsDetox ? (
-            <span>⚠️</span>
-          ) : (
-            <span>💡</span>
-          )}
-        </div>
+        <div className="text-5xl mb-4">{result.needsDetox ? <span>⚠️</span> : <span>💡</span>}</div>
         <p className="text-xs font-medium text-muted-foreground tracking-widest uppercase mb-3">Work Innovation</p>
         <h3 className="text-xl font-bold text-foreground mb-2">업무 방식 혁신 제안</h3>
         <div className="space-y-2">
@@ -471,16 +462,18 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         )}
       </div>
 
-      {/* AI 영향 없을 때만 독립 역제안 표시 (1개만) */}
+      {/* 잠식 없을 때만 독립 역제안 표시 */}
       {result.timeReport.erosionHr <= 0 && result.recommendations && result.recommendations.length > 0 && (
         <div className="glass-card rounded-3xl p-6">
           <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1">💡 AI 역제안</p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm shrink-0">{result.recommendations[0].icon}</span>
-            <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">{result.recommendations[0].tool}</strong> — {result.recommendations[0].reason}
-            </p>
-          </div>
+          {result.recommendations.map((rec, i) => (
+            <div key={i} className="flex items-center gap-2 mb-2 last:mb-0">
+              <span className="text-sm shrink-0">{rec.icon}</span>
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">{rec.tool}</strong> — {rec.reason}
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
