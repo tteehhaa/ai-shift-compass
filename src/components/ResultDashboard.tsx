@@ -405,14 +405,15 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 {getErosionMetaphor(result.timeReport.erosionHr)}
               </span>
               {result.recommendations && result.recommendations.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
-                  <p className="text-[11px] font-semibold text-foreground">💡 AI 역제안</p>
+                <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
+                  <p className="text-sm font-semibold text-foreground">💡 AI 역제안</p>
                   {result.recommendations.map((rec, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-sm shrink-0 mt-0.5">{rec.icon}</span>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        <strong className="text-foreground">{rec.tool}</strong> — {rec.reason}
-                      </p>
+                    <div key={i} className="flex items-start gap-3 rounded-xl bg-white/50 border border-border/30 p-3">
+                      <span className="text-lg shrink-0">{rec.icon}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{rec.tool}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{rec.reason}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
