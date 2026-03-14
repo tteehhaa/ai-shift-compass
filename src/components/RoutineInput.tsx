@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import type { RoutineEntry, TagCategory, TagGroup } from '@/lib/types';
 import { TAG_CONFIG, TAG_GROUPS } from '@/lib/types';
 
