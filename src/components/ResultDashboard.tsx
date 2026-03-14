@@ -18,7 +18,6 @@ import {
   ChevronDown,
   ChevronUp,
   Coffee,
-  Lightbulb,
 } from "lucide-react";
 import EmailSignup from "@/components/EmailSignup";
 import CountUp from "@/components/CountUp";
