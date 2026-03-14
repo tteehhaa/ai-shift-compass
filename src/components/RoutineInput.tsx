@@ -179,9 +179,10 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
   }, []);
 
   const addRoutine = () => {
-    const newRoutine: RoutineEntry = { time: '09:00', activity: '', duration: 1, tag: '➕ 기타' };
-    const updated = sortByTime([...routines, newRoutine]);
-    onChange(updated);
+    const last = routines[routines.length - 1];
+    const nextTime = last ? addTime(last.time, last.duration) : '09:00';
+    const newRoutine: RoutineEntry = { time: nextTime, activity: '', duration: 1, tag: '➕ 기타' };
+    onChange([...routines, newRoutine]);
   };
 
   const updateRoutine = (index: number, field: keyof RoutineEntry, value: string | number | TagCategory) => {
