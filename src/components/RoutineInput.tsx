@@ -158,7 +158,7 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: -30, scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-              className="glass-card rounded-2xl p-4 group transition-all hover:shadow-md"
+              className="glass-card rounded-2xl p-4 group transition-all hover:shadow-md overflow-visible"
               style={{ borderLeft: `3px solid ${tagConfig.color}` }}
             >
               {/* Row 1: Time + Duration + Delete */}
