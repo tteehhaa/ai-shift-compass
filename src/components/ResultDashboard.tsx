@@ -368,14 +368,15 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             {/* Daily */}
             <div className="flex items-baseline justify-between mb-1">
               <span className="text-sm text-muted-foreground">오늘 하루</span>
-              <CountUp
-                end={erosionDaily}
-                prefix="-"
-                suffix="원"
-                className="text-2xl font-bold"
-                style={{ color: TIME_CATEGORY_COLORS.erosion }}
-                formatter={(n) => n.toLocaleString()}
-              />
+              <span style={{ color: TIME_CATEGORY_COLORS.erosion }}>
+                <CountUp
+                  end={erosionDaily}
+                  prefix="-"
+                  suffix="원"
+                  className="text-2xl font-bold"
+                  formatter={(n) => n.toLocaleString()}
+                />
+              </span>
             </div>
             <div className="flex items-center gap-1.5 justify-end mb-4">
               <span className="text-xs text-muted-foreground">⏱️ {result.timeReport.erosionHr}시간 잠식</span>
@@ -384,14 +385,15 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             {/* Monthly */}
             <div className="flex items-baseline justify-between mb-4">
               <span className="text-sm text-muted-foreground">한 달이면</span>
-              <CountUp
-                end={erosionDaily * 22}
-                prefix="-"
-                suffix="원"
-                className="text-xl font-semibold text-foreground"
-                style={{ color: TIME_CATEGORY_COLORS.erosion }}
-                formatter={(n) => n.toLocaleString()}
-              />
+              <span style={{ color: TIME_CATEGORY_COLORS.erosion }}>
+                <CountUp
+                  end={erosionDaily * 22}
+                  prefix="-"
+                  suffix="원"
+                  className="text-xl font-semibold"
+                  formatter={(n) => n.toLocaleString()}
+                />
+              </span>
             </div>
 
             {/* Insight Box + AI 역제안 */}
