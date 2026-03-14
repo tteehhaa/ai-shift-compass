@@ -371,17 +371,29 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             </div>
 
             <div className="rounded-2xl p-4 bg-white/60 border border-destructive/10 mt-3">
-              <div className="flex items-start gap-2">
-                <p className="text-sm text-foreground leading-relaxed">
-                  {/* 수정됨: 텍스트 변경 */}
-                  ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 단순 작업에 매달리고
-                  있습니다.
-                  <br />
-                  <span className="text-muted-foreground text-xs mt-1 block">
-                    {getErosionMetaphor(result.timeReport.erosionHr)}
-                  </span>
-                </p>
-              </div>
+              <p className="text-sm text-foreground leading-relaxed">
+                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 단순 작업에 매달리고
+                있습니다.
+                <br />
+                <span className="text-muted-foreground text-xs mt-1 block">
+                  {getErosionMetaphor(result.timeReport.erosionHr)}
+                </span>
+              </p>
+              {result.recommendations && result.recommendations.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
+                  <p className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                    💡 AI 역제안
+                  </p>
+                  {result.recommendations.map((rec, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-sm shrink-0">{rec.icon}</span>
+                      <p className="text-xs text-muted-foreground">
+                        <strong className="text-foreground">{rec.tool}</strong> — {rec.reason}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Annual erosion */}
