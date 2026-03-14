@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
-import { TAG_CONFIG } from "@/lib/types";
 import CommunityRanking from "@/components/CommunityRanking";
 import {
   REPLACEMENT_COLORS,
