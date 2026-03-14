@@ -53,7 +53,7 @@ export default function Index() {
     }
   }, []);
 
-  const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim());
+  const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim() && r.activity.length <= 40);
 
   const handleAnalyze = () => {
     setStep("analyzing");

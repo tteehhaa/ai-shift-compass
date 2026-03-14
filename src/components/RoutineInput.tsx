@@ -18,7 +18,7 @@ for (let h = 0; h < 24; h++) {
 
 const DURATION_OPTIONS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8];
 
-const MAX_CHARS = 50;
+const MAX_CHARS = 40;
 const WARN_CHARS = 30;
 
 function formatDuration(d: number): string {
@@ -158,7 +158,7 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: -30, scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-              className="glass-card rounded-2xl p-4 group transition-all hover:shadow-md"
+              className="glass-card rounded-2xl p-4 group transition-all hover:shadow-md overflow-visible"
               style={{ borderLeft: `3px solid ${tagConfig.color}` }}
             >
               {/* Row 1: Time + Duration + Delete */}
