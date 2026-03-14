@@ -204,12 +204,14 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
 
   const economicDaily = Math.round(productivityValue);
 
-  // 소셜 미디어 태그: (시간 * 도파민잠식지수 1.2) → 손실
-  const erosionCostDaily = Math.round(
-    routines
-      .filter(r => TAG_CONFIG[r.tag].group === '디지털 소비')
-      .reduce((s, r) => s + r.duration * DOPAMINE_EROSION_FACTOR * HOURLY_VALUE, 0)
-  );
+  // 잠식 손실: 디지털 소비는 도파민잠식지수 1.2 적용, 나머지 critical/high는 시급 기준
+  const digitalErosion = routines
+    .filter(r => TAG_CONFIG[r.tag].group === '디지털 소비')
+    .reduce((s, r) => s + r.duration * DOPAMINE_EROSION_FACTOR * HOURLY_VALUE, 0);
+  const otherErosion = (timeReport.erosionHr - routines
+    .filter(r => TAG_CONFIG[r.tag].group === '디지털 소비')
+    .reduce((s, r) => s + r.duration, 0)) * HOURLY_VALUE;
+  const erosionCostDaily = Math.round(Math.max(0, digitalErosion + otherErosion));
 
   // B. AI 역제안
   const recommendations = generateRecommendations(routines);
