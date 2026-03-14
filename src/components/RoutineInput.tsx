@@ -197,9 +197,15 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
 
     let updated = routines.map((r, i) => i === index ? { ...r, [field]: value } : r);
 
-    // 시간 또는 duration 변경 시 하위 항목들 자동 조정 (겹침 방지)
+    // 시간 또는 duration 변경 시 정렬 + 하위 항목들 자동 조정 (겹침 방지)
     if (field === 'time' || field === 'duration') {
-      for (let j = index + 1; j < updated.length; j++) {
+      // 시간 변경 시 먼저 정렬하여 올바른 위치로 이동
+      if (field === 'time') {
+        updated = sortByTime(updated);
+      }
+      // 정렬 후 겹침 방지
+      for (let j = 0; j < updated.length; j++) {
+        if (j === 0) continue;
         const prev = updated[j - 1];
         const prevEnd = timeToMinutes(addTime(prev.time, prev.duration));
         const currStart = timeToMinutes(updated[j].time);
