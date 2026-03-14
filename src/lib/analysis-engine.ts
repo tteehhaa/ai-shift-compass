@@ -85,54 +85,55 @@ function getReplacementLevel(score: number, involvement: AIInvolvement): Replace
   return "human";
 }
 
-// AI 역제안: 키워드 매칭
+// AI 역제안: 입력 데이터에서 가장 효과적인 1개만 추천
 function generateRecommendations(routines: RoutineEntry[]): AIRecommendation[] {
-  const recs: AIRecommendation[] = [];
-  const seen = new Set<string>();
   const allText = routines.map(r => r.activity.toLowerCase()).join(' ');
-  const allTags = routines.map(r => r.tag);
 
-  const addRec = (tool: string, reason: string, icon: string) => {
-    if (!seen.has(tool)) { seen.add(tool); recs.push({ tool, reason, icon }); }
-  };
+  // 각 추천 후보에 실제 투입 시간(시간) 기반 점수 부여
+  type Candidate = AIRecommendation & { score: number };
+  const candidates: Candidate[] = [];
 
-  // 키워드 기반 추천
-  if (/엑셀|데이터|스프레드시트|분석/.test(allText)) {
-    addRec('ChatGPT Advanced Data Analysis', '데이터 분석·시각화를 자동화하여 엑셀 작업 시간을 80% 단축할 수 있습니다.', '📊');
-  }
-  if (/메일|이메일|영어|번역/.test(allText)) {
-    addRec('DeepL / Grammarly', '영문 이메일·번역을 AI가 자연스럽게 처리하여 소통 시간을 절약합니다.', '✉️');
-  }
-  if (/보고서|문서|작성|ppt|발표/.test(allText)) {
-    addRec('Notion AI / Gamma', '보고서·프레젠테이션 초안을 AI가 자동 생성하여 작성 시간을 줄입니다.', '📝');
-  }
-  if (/코딩|개발|프로그래밍|코드/.test(allText)) {
-    addRec('GitHub Copilot / Cursor', 'AI 코드 어시스턴트로 개발 생산성을 2~3배 높일 수 있습니다.', '💻');
-  }
-  if (/리서치|검색|조사|논문/.test(allText)) {
-    addRec('Perplexity AI', 'AI 기반 검색으로 리서치 시간을 대폭 줄이고 정확도를 높입니다.', '🔍');
-  }
-  if (/디자인|그래픽|이미지/.test(allText)) {
-    addRec('Midjourney / Canva AI', 'AI 디자인 도구로 시각 자료 제작 시간을 크게 단축합니다.', '🎨');
-  }
+  // 키워드 + 태그 매칭 → 해당 활동의 총 duration을 점수로
+  const keywordRules: { pattern: RegExp; tags: TagCategory[]; tool: string; reason: string; icon: string }[] = [
+    { pattern: /엑셀|데이터|스프레드시트|분석/, tags: ['📧 단순 행정', '💻 전문 업무'], tool: 'ChatGPT Advanced Data Analysis', reason: '데이터 분석·시각화를 자동화하여 엑셀 작업 시간을 80% 단축할 수 있습니다.', icon: '📊' },
+    { pattern: /메일|이메일|영어|번역/, tags: ['📧 단순 행정'], tool: 'DeepL / Grammarly', reason: '영문 이메일·번역을 AI가 자연스럽게 처리하여 소통 시간을 절약합니다.', icon: '✉️' },
+    { pattern: /보고서|문서|작성|ppt|발표/, tags: ['📧 단순 행정', '💻 전문 업무'], tool: 'Notion AI / Gamma', reason: '보고서·프레젠테이션 초안을 AI가 자동 생성하여 작성 시간을 줄입니다.', icon: '📝' },
+    { pattern: /코딩|개발|프로그래밍|코드/, tags: ['💻 전문 업무'], tool: 'GitHub Copilot / Cursor', reason: 'AI 코드 어시스턴트로 개발 생산성을 2~3배 높일 수 있습니다.', icon: '💻' },
+    { pattern: /리서치|검색|조사|논문/, tags: ['📚 자기계발', '💻 전문 업무'], tool: 'Perplexity AI', reason: 'AI 기반 검색으로 리서치 시간을 대폭 줄이고 정확도를 높입니다.', icon: '🔍' },
+    { pattern: /디자인|그래픽|이미지/, tags: ['💻 전문 업무'], tool: 'Midjourney / Canva AI', reason: 'AI 디자인 도구로 시각 자료 제작 시간을 크게 단축합니다.', icon: '🎨' },
+  ];
 
-  // 태그 기반 추천
-  if (allTags.includes('📱 소셜 미디어') || allTags.includes('🎬 미디어 감상')) {
-    const digitalHours = routines
-      .filter(r => r.tag === '📱 소셜 미디어' || r.tag === '🎬 미디어 감상')
-      .reduce((s, r) => s + r.duration, 0);
-    if (digitalHours >= 1) {
-      addRec('스크린타임 관리 앱', `하루 ${digitalHours}시간의 디지털 소비 시간을 줄여 생산성 향상에 투자하세요.`, '📱');
+  for (const rule of keywordRules) {
+    if (rule.pattern.test(allText)) {
+      // 매칭되는 활동들의 총 시간을 점수로
+      const matchedHours = routines
+        .filter(r => rule.pattern.test(r.activity.toLowerCase()) || rule.tags.includes(r.tag))
+        .reduce((s, r) => s + r.duration, 0);
+      if (matchedHours > 0) {
+        candidates.push({ tool: rule.tool, reason: rule.reason, icon: rule.icon, score: matchedHours });
+      }
     }
   }
 
-  // AI 활용도가 0%인 경우
-  const hasProductivity = allTags.some(t => TAG_CONFIG[t].group === '생산성');
-  if (!hasProductivity) {
-    addRec('AI 업무 효율화 도구', '일상의 반복 업무에 AI를 도입하면 하루 1~2시간의 여유를 확보할 수 있습니다. 비난이 아닌 기회입니다!', '🚀');
+  // 태그 기반: 디지털 소비가 많으면 스크린타임 관리 추천
+  const digitalHours = routines
+    .filter(r => r.tag === '📱 소셜 미디어' || r.tag === '🎬 미디어 감상')
+    .reduce((s, r) => s + r.duration, 0);
+  if (digitalHours >= 1) {
+    candidates.push({ tool: '스크린타임 관리 앱', reason: `하루 ${digitalHours}시간의 디지털 소비 시간을 줄여 생산성 향상에 투자하세요.`, icon: '📱', score: digitalHours });
   }
 
-  return recs;
+  // 생산성 태그가 전혀 없으면 범용 추천
+  const hasProductivity = routines.some(r => TAG_CONFIG[r.tag].group === '생산성');
+  if (!hasProductivity && candidates.length === 0) {
+    candidates.push({ tool: 'AI 업무 효율화 도구', reason: '일상의 반복 업무에 AI를 도입하면 하루 1~2시간의 여유를 확보할 수 있습니다.', icon: '🚀', score: 1 });
+  }
+
+  // 점수 기준 정렬 후 가장 높은 1개만 반환
+  candidates.sort((a, b) => b.score - a.score);
+  if (candidates.length === 0) return [];
+  const best = candidates[0];
+  return [{ tool: best.tool, reason: best.reason, icon: best.icon }];
 }
 
 // MBTI 페르소나 데이터
