@@ -197,15 +197,36 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
 
     let updated = routines.map((r, i) => i === index ? { ...r, [field]: value } : r);
 
-    // 시간 또는 duration 변경 시 정렬 + 하위 항목들 자동 조정 (겹침 방지)
+    // 시간 또는 duration 변경 시 충돌 해결
     if (field === 'time' || field === 'duration') {
-      // 시간 변경 시 먼저 정렬하여 올바른 위치로 이동
       if (field === 'time') {
         updated = sortByTime(updated);
       }
-      // 정렬 후 겹침 방지
-      for (let j = 0; j < updated.length; j++) {
-        if (j === 0) continue;
+
+      // 변경된 항목의 새 인덱스 찾기
+      const changedEntry = updated.find((r, i) => {
+        if (field === 'time') return r.activity === routines[index].activity && r.tag === routines[index].tag && r.time === value;
+        return i === index;
+      });
+      const changedIdx = changedEntry ? updated.indexOf(changedEntry) : index;
+
+      // 위쪽: 변경된 항목 시작시간과 겹치는 이전 항목의 duration 축소
+      if (changedIdx > 0) {
+        const changedStart = timeToMinutes(updated[changedIdx].time);
+        for (let j = changedIdx - 1; j >= 0; j--) {
+          const prevStart = timeToMinutes(updated[j].time);
+          const prevEnd = prevStart + updated[j].duration * 60;
+          if (prevEnd > changedStart) {
+            const newDuration = Math.max(0.5, (changedStart - prevStart) / 60);
+            // 0.5시간 단위로 반올림(내림)
+            const snapped = Math.floor(newDuration * 2) / 2;
+            updated[j] = { ...updated[j], duration: Math.max(0.5, snapped) };
+          }
+        }
+      }
+
+      // 아래쪽: 기존대로 겹치면 뒤로 밀기
+      for (let j = 1; j < updated.length; j++) {
         const prev = updated[j - 1];
         const prevEnd = timeToMinutes(addTime(prev.time, prev.duration));
         const currStart = timeToMinutes(updated[j].time);
