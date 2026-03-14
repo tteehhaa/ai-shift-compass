@@ -266,19 +266,19 @@ export const REPLACEMENT_COLORS: Record<string, string> = {
 
 export const REPLACEMENT_LABELS: Record<string, string> = {
   critical: "AI 대체 위험",
-  high: "AI 잠식",
+  high: "AI 영향력",
   medium: "부분 지원",
   low: "보조 활용",
-  assist: "자동화 성공",
+  assist: "AI 자동화",
   human: "인간 고유 영역",
 };
 
 export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
   critical: "AI로 즉시 대체 가능한 영역.",
-  high: "알고리즘에 의해 잠식되고 있는 시간.",
+  high: "AI 알고리즘이 제안하는 콘텐츠를 즐기고 계시네요.",
   medium: "AI와 인간의 협업이 필요한 지대.",
   low: "인간의 판단이 핵심인 보조 영역.",
-  assist: "AI를 통해 자동화에 성공한 영역.",
+  assist: "AI를 통해 자동화한 영역.",
   human: "AI가 개입할 수 없는 가치 있는 시간.",
 };
 
