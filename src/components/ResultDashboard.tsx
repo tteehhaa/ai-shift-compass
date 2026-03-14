@@ -355,7 +355,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* 🚨 잠식 손실 카드 */}
+      {/* 🚨 AI 영향력 카드 */}
       {result.timeReport.erosionHr > 0 && (
         <div className="rounded-3xl overflow-hidden border-2" style={{ borderColor: "hsl(0 70% 55% / 0.3)" }}>
           <div className="p-6" style={{ background: "linear-gradient(135deg, hsl(0 70% 97%), hsl(30 80% 96%))" }}>
@@ -379,7 +379,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
               </span>
             </div>
             <div className="flex items-center gap-1.5 justify-end mb-4">
-              <span className="text-xs text-muted-foreground">⏱️ {result.timeReport.erosionHr}시간 잠식</span>
+              <span className="text-xs text-muted-foreground">⏱️ {result.timeReport.erosionHr}시간 AI 영향력</span>
             </div>
 
             {/* Monthly */}
@@ -399,23 +399,21 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             {/* Insight Box + AI 역제안 */}
             <div className="rounded-2xl p-4 bg-white/60 border border-red-200/50 mt-0">
               <p className="text-sm text-foreground leading-relaxed">
-                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 작업에 매달리고 있습니다.
+                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI 도구를 활용하면 이 작업을 훨씬 효율적으로 마무리하고 개인 시간을 확보할 수 있습니다.
               </p>
               <span className="text-muted-foreground text-xs mt-1 block">
                 {getErosionMetaphor(result.timeReport.erosionHr)}
               </span>
               {result.recommendations && result.recommendations.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
-                  <p className="text-sm font-semibold text-foreground">💡 AI 역제안</p>
-                  {result.recommendations.map((rec, i) => (
-                    <div key={i} className="flex items-start gap-3 rounded-xl bg-white/50 border border-border/30 p-3">
-                      <span className="text-lg shrink-0">{rec.icon}</span>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{rec.tool}</p>
-                        <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{rec.reason}</p>
-                      </div>
+                <div className="mt-4 pt-4 border-t border-border/30">
+                  <p className="text-sm font-semibold text-foreground mb-3">💡 AI 역제안</p>
+                  <div className="flex items-start gap-3 rounded-xl bg-white/50 border border-border/30 p-3">
+                    <span className="text-lg shrink-0">{result.recommendations[0].icon}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{result.recommendations[0].tool}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{result.recommendations[0].reason}</p>
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -433,11 +431,11 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 className="text-3xl font-black text-white"
                 formatter={(n) => n.toLocaleString()}
               />
-              <p className="text-xs text-white/80 mt-1">단순 업무에서 벗어나 진짜 경쟁력을 키우세요</p>
+              <p className="text-xs text-white/80 mt-1">AI를 활용해 더 가치 있는 시간을 만들어보세요</p>
             </div>
 
             <p className="text-[10px] text-muted-foreground/50 mt-3 text-center">
-              * 도파민 잠식 활동은 1.2배 가중 적용
+              * 알고리즘 기반 콘텐츠 소비는 1.2배 가중 적용
             </p>
           </div>
         </div>
