@@ -289,14 +289,15 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {/* Daily */}
           <div className="flex items-baseline justify-between mb-1">
             <span className="text-sm text-muted-foreground">오늘 하루</span>
-            <CountUp
-              end={result.economicValueDaily}
-              prefix="+"
-              suffix="원"
-              className="text-2xl font-bold"
-              style={{ color: TIME_CATEGORY_COLORS.gain }}
-              formatter={(n) => n.toLocaleString()}
-            />
+            <span style={{ color: TIME_CATEGORY_COLORS.gain }}>
+              <CountUp
+                end={result.economicValueDaily}
+                prefix="+"
+                suffix="원"
+                className="text-2xl font-bold"
+                formatter={(n) => n.toLocaleString()}
+              />
+            </span>
           </div>
           {coffees > 0 && (
             <div className="flex items-center gap-1.5 justify-end mb-4">
