@@ -99,7 +99,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
   const coffees = getCoffeeCount(result.economicValueDaily);
   const mcdonalds = getMcdonaldsCount(result.economicValueMonthly);
-  const erosionDaily = result.timeReport.erosionHr * 10030;
+  const erosionDaily = result.erosionCostDaily ?? result.timeReport.erosionHr * 10030;
 
   return (
     <div className="space-y-8 pb-10">
