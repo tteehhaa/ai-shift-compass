@@ -18,7 +18,7 @@ for (let h = 0; h < 24; h++) {
 
 const DURATION_OPTIONS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8];
 
-const MAX_CHARS = 50;
+const MAX_CHARS = 40;
 const WARN_CHARS = 30;
 
 function formatDuration(d: number): string {
