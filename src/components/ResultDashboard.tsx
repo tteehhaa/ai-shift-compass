@@ -280,10 +280,10 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       {/* 💰 창출 가치 카드 */}
       <div className="rounded-3xl overflow-hidden border-2" style={{ borderColor: "hsl(210 80% 55% / 0.3)" }}>
         <div className="p-6" style={{ background: "linear-gradient(135deg, hsl(210 80% 96%), hsl(150 60% 95%))" }}>
-          <div className="flex items-center gap-2 mb-4">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-5">
             <span className="text-2xl">💰</span>
-            {/* 수정됨: 타이틀 변경 */}
-            <h3 className="text-base font-bold text-foreground">오늘 AI를 레버리지하여 창출한 부가가치</h3>
+            <h3 className="text-base font-bold text-foreground">AI를 레버리지하여 창출한 부가가치</h3>
           </div>
 
           {/* Daily */}
@@ -291,13 +291,15 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             <span className="text-sm text-muted-foreground">오늘 하루</span>
             <CountUp
               end={result.economicValueDaily}
+              prefix="+"
               suffix="원"
               className="text-2xl font-bold"
+              style={{ color: TIME_CATEGORY_COLORS.gain }}
               formatter={(n) => n.toLocaleString()}
             />
           </div>
           {coffees > 0 && (
-            <div className="flex items-center gap-1.5 justify-end mb-3">
+            <div className="flex items-center gap-1.5 justify-end mb-4">
               <Coffee className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">커피 {coffees}잔 값</span>
             </div>
@@ -308,6 +310,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
             <span className="text-sm text-muted-foreground">한 달이면</span>
             <CountUp
               end={result.economicValueMonthly}
+              prefix="+"
               suffix="원"
               className="text-xl font-semibold text-foreground"
               formatter={(n) => n.toLocaleString()}
@@ -316,32 +319,37 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {mcdonalds > 0 && (
             <div className="flex items-center gap-1.5 justify-end mb-1">
               <span className="text-lg">🍔</span>
-              <span className="text-xs text-muted-foreground">맥도날드 빅맥 {mcdonalds}세트</span>
+              <span className="text-xs text-muted-foreground">빅맥 {mcdonalds}세트</span>
             </div>
           )}
-          <p className="text-[10px] text-muted-foreground/50 text-right">* 서울 기준 빅맥 세트 5,500원 기준</p>
+
+          {/* Insight Box */}
+          <div className="rounded-2xl p-4 bg-white/60 border border-blue-200/50 mt-4">
+            <p className="text-sm text-foreground leading-relaxed">
+              🚀 AI 도구를 활용해 하루 <strong>{(result.timeReport.gainHr + result.timeReport.augmentHr).toFixed(1)}시간</strong>의 생산성을 확보하고 있습니다.
+            </p>
+            <span className="text-muted-foreground text-xs mt-1 block">
+              {getAnnualMetaphor(result.economicValueYearly)}
+            </span>
+          </div>
 
           {/* Annual — HERO */}
           <div
-            className="rounded-2xl p-5 text-center"
+            className="mt-4 rounded-2xl p-5 text-center"
             style={{ background: "linear-gradient(135deg, hsl(210 80% 50%), hsl(150 60% 45%))" }}
           >
-            {/* 수정됨: 아이콘 및 텍스트 변경 */}
-            <p className="text-xs text-white/80 mb-1">🚀 1년 환산 가치</p>
+            <p className="text-xs text-white/80 mb-1">📈 1년 환산 가치</p>
             <CountUp
               end={result.economicValueYearly}
-              prefix=""
+              prefix="+"
               suffix="원"
               className="text-3xl font-black text-white"
               formatter={(n) => n.toLocaleString()}
             />
-            <p className="text-xs text-white/90 mt-2 leading-relaxed">
-              {getAnnualMetaphor(result.economicValueYearly)}
-            </p>
           </div>
 
-          <p className="text-[10px] text-muted-foreground/60 mt-3 text-center">
-            * 2025년 최저시급 10,030원 기준 · 생산적 시간(파랑/초록)만 가치로 인정
+          <p className="text-[10px] text-muted-foreground/50 mt-3 text-center">
+            * 2025년 최저시급 10,030원 기준 · 생산적 시간만 가치로 인정
           </p>
         </div>
       </div>
@@ -350,43 +358,56 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       {result.timeReport.erosionHr > 0 && (
         <div className="rounded-3xl overflow-hidden border-2" style={{ borderColor: "hsl(0 70% 55% / 0.3)" }}>
           <div className="p-6" style={{ background: "linear-gradient(135deg, hsl(0 70% 97%), hsl(30 80% 96%))" }}>
-            <div className="flex items-center gap-2 mb-4">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-5">
               <span className="text-2xl">🚨</span>
-              {/* 수정됨: 타이틀 변경 */}
               <h3 className="text-base font-bold text-foreground">AI에 대체될 위기에 처한 당신의 시간</h3>
             </div>
 
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-sm text-muted-foreground">일간 기회비용 손실</span>
-              <span style={{ color: TIME_CATEGORY_COLORS.erosion }}>
-                <CountUp
-                  end={erosionDaily}
-                  prefix="-"
-                  suffix="원"
-                  className="text-2xl font-bold"
-                  formatter={(n) => n.toLocaleString()}
-                />
-              </span>
+            {/* Daily */}
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="text-sm text-muted-foreground">오늘 하루</span>
+              <CountUp
+                end={erosionDaily}
+                prefix="-"
+                suffix="원"
+                className="text-2xl font-bold"
+                style={{ color: TIME_CATEGORY_COLORS.erosion }}
+                formatter={(n) => n.toLocaleString()}
+              />
+            </div>
+            <div className="flex items-center gap-1.5 justify-end mb-4">
+              <span className="text-xs text-muted-foreground">⏱️ {result.timeReport.erosionHr}시간 잠식</span>
             </div>
 
-            <div className="rounded-2xl p-4 bg-white/60 border border-destructive/10 mt-3">
+            {/* Monthly */}
+            <div className="flex items-baseline justify-between mb-4">
+              <span className="text-sm text-muted-foreground">한 달이면</span>
+              <CountUp
+                end={erosionDaily * 22}
+                prefix="-"
+                suffix="원"
+                className="text-xl font-semibold text-foreground"
+                style={{ color: TIME_CATEGORY_COLORS.erosion }}
+                formatter={(n) => n.toLocaleString()}
+              />
+            </div>
+
+            {/* Insight Box + AI 역제안 */}
+            <div className="rounded-2xl p-4 bg-white/60 border border-red-200/50 mt-0">
               <p className="text-sm text-foreground leading-relaxed">
-                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 단순 작업에 매달리고
-                있습니다.
-                <br />
-                <span className="text-muted-foreground text-xs mt-1 block">
-                  {getErosionMetaphor(result.timeReport.erosionHr)}
-                </span>
+                ⚠️ 매일 <strong>{result.timeReport.erosionHr}시간</strong>, AI라면 순식간에 끝낼 작업에 매달리고 있습니다.
               </p>
+              <span className="text-muted-foreground text-xs mt-1 block">
+                {getErosionMetaphor(result.timeReport.erosionHr)}
+              </span>
               {result.recommendations && result.recommendations.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
-                  <p className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                    💡 AI 역제안
-                  </p>
+                  <p className="text-[11px] font-semibold text-foreground">💡 AI 역제안</p>
                   {result.recommendations.map((rec, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-sm shrink-0">{rec.icon}</span>
-                      <p className="text-xs text-muted-foreground">
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-sm shrink-0 mt-0.5">{rec.icon}</span>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
                         <strong className="text-foreground">{rec.tool}</strong> — {rec.reason}
                       </p>
                     </div>
@@ -395,22 +416,25 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
               )}
             </div>
 
-            {/* Annual erosion */}
+            {/* Annual — HERO */}
             <div
-              className="mt-4 rounded-2xl p-4 text-center"
+              className="mt-4 rounded-2xl p-5 text-center"
               style={{ background: "linear-gradient(135deg, hsl(0 70% 50%), hsl(30 70% 50%))" }}
             >
-              {/* 수정됨: 누적 기회비용 강조 */}
               <p className="text-xs text-white/80 mb-1">💸 1년 누적 기회비용</p>
               <CountUp
                 end={erosionDaily * 260}
                 prefix="-"
                 suffix="원"
-                className="text-2xl font-black text-white"
+                className="text-3xl font-black text-white"
                 formatter={(n) => n.toLocaleString()}
               />
               <p className="text-xs text-white/80 mt-1">단순 업무에서 벗어나 진짜 경쟁력을 키우세요</p>
             </div>
+
+            <p className="text-[10px] text-muted-foreground/50 mt-3 text-center">
+              * 도파민 잠식 활동은 1.2배 가중 적용
+            </p>
           </div>
         </div>
       )}
