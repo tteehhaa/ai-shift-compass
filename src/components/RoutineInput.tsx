@@ -129,18 +129,54 @@ function TagSelector({ value, onChange }: { value: TagCategory; onChange: (tag: 
   );
 }
 
+// 명백한 불일치 감지: 키워드가 다른 태그 그룹에 "강하게" 매칭될 때만 자동 변경
+const STRONG_TAG_HINTS: { keywords: RegExp; tag: TagCategory }[] = [
+  { keywords: /이메일|메일|보고서|문서|회의록|ppt|엑셀|행정|서류/, tag: '📧 단순 행정' },
+  { keywords: /코딩|개발|프로그래밍|코드|디버깅|배포|서버/, tag: '💻 전문 업무' },
+  { keywords: /공부|학습|강의|책|리서치|논문|독서|수업|과외/, tag: '📚 자기계발' },
+  { keywords: /유튜브|틱톡|인스타|릴스|쇼츠|트위터|레딧|sns/, tag: '📱 소셜 미디어' },
+  { keywords: /넷플릭스|드라마|영화|웹툰|만화|게임|방송/, tag: '🎬 미디어 감상' },
+  { keywords: /운동|헬스|러닝|조깅|수영|축구|농구|등산|산책|요가|필라테스/, tag: '🏃 운동/활동' },
+  { keywords: /회의|미팅|상담|면접|대화|통화|전화/, tag: '🤝 대면 소통' },
+  { keywords: /수면|잠|낮잠|휴식|명상|목욕|샤워/, tag: '🛌 휴식/수면' },
+  { keywords: /운전|출퇴근|통근|이동|버스|지하철/, tag: '🚗 운전' },
+  { keywords: /식사|밥|점심|저녁|아침|요리|식당|배달/, tag: '🥗 식사/요리' },
+  { keywords: /청소|빨래|장보기|쇼핑|세탁|정리/, tag: '🧹 집안일/쇼핑' },
+];
+
+function detectStrongMismatch(activity: string, currentTag: TagCategory): TagCategory | null {
+  const t = activity.toLowerCase().trim();
+  if (t.length < 2) return null;
+
+  const currentGroup = TAG_CONFIG[currentTag].group;
+
+  for (const hint of STRONG_TAG_HINTS) {
+    if (hint.keywords.test(t)) {
+      const hintGroup = TAG_CONFIG[hint.tag].group;
+      // 같은 그룹이면 불일치 아님 → 자율권 보장
+      if (hintGroup === currentGroup) return null;
+      // 다른 그룹이면 명백한 불일치 → 자동 변경
+      return hint.tag;
+    }
+  }
+  return null;
+}
+
 export default function RoutineInput({ routines, onChange }: RoutineInputProps) {
   const sortTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const autoTagTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const triggerSort = (updated: RoutineEntry[]) => {
-    // Debounce sorting to let user finish editing
     if (sortTimeoutRef.current) clearTimeout(sortTimeoutRef.current);
     sortTimeoutRef.current = setTimeout(() => {
       onChange(sortByTime(updated));
     }, 600);
   };
 
-  useEffect(() => () => { if (sortTimeoutRef.current) clearTimeout(sortTimeoutRef.current); }, []);
+  useEffect(() => () => {
+    if (sortTimeoutRef.current) clearTimeout(sortTimeoutRef.current);
+    if (autoTagTimeoutRef.current) clearTimeout(autoTagTimeoutRef.current);
+  }, []);
 
   const addRoutine = () => {
     const newRoutine: RoutineEntry = { time: '09:00', activity: '', duration: 1, tag: '➕ 기타' };
@@ -155,6 +191,20 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
 
     if (field === 'time') {
       triggerSort(updated);
+    }
+
+    // 활동 내용 변경 시 태그 자동 변경 감지 (디바운스)
+    if (field === 'activity' && typeof value === 'string') {
+      if (autoTagTimeoutRef.current) clearTimeout(autoTagTimeoutRef.current);
+      autoTagTimeoutRef.current = setTimeout(() => {
+        const current = updated[index];
+        if (!current) return;
+        const suggested = detectStrongMismatch(current.activity, current.tag);
+        if (suggested) {
+          const autoUpdated = updated.map((r, i) => i === index ? { ...r, tag: suggested } : r);
+          onChange(autoUpdated);
+        }
+      }, 800);
     }
 
     onChange(updated);
