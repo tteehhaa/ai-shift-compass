@@ -291,14 +291,14 @@ export const TIME_CATEGORY_COLORS = {
 };
 export const TIME_CATEGORY_LABELS = {
   gain: "획득 시간",
-  erosion: "잠식 시간",
+  erosion: "AI 영향 시간",
   augment: "증강 시간",
   mixed: "혼재 시간",
   human: "고유 시간",
 };
 export const TIME_CATEGORY_DESCRIPTIONS = {
   gain: "AI로 번 시간.",
-  erosion: "뺏긴 시간.",
+  erosion: "AI가 대신할 수 있는 시간.",
   augment: "강해진 시간.",
   mixed: "협업한 시간.",
   human: "순수한 인간의 시간.",

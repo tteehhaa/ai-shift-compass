@@ -471,18 +471,16 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         )}
       </div>
 
-      {/* 잠식 없을 때만 독립 역제안 표시 */}
+      {/* AI 영향 없을 때만 독립 역제안 표시 (1개만) */}
       {result.timeReport.erosionHr <= 0 && result.recommendations && result.recommendations.length > 0 && (
         <div className="glass-card rounded-3xl p-6">
           <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1">💡 AI 역제안</p>
-          {result.recommendations.map((rec, i) => (
-            <div key={i} className="flex items-center gap-2 mb-2 last:mb-0">
-              <span className="text-sm shrink-0">{rec.icon}</span>
-              <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">{rec.tool}</strong> — {rec.reason}
-              </p>
-            </div>
-          ))}
+          <div className="flex items-center gap-2">
+            <span className="text-sm shrink-0">{result.recommendations[0].icon}</span>
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">{result.recommendations[0].tool}</strong> — {result.recommendations[0].reason}
+            </p>
+          </div>
         </div>
       )}
 
