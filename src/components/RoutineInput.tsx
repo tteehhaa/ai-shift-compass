@@ -195,10 +195,18 @@ export default function RoutineInput({ routines, onChange }: RoutineInputProps) 
   const updateRoutine = (index: number, field: keyof RoutineEntry, value: string | number | TagCategory) => {
     if (field === 'activity' && typeof value === 'string' && value.length > MAX_CHARS) return;
 
-    const updated = routines.map((r, i) => i === index ? { ...r, [field]: value } : r);
+    let updated = routines.map((r, i) => i === index ? { ...r, [field]: value } : r);
 
-    if (field === 'time') {
-      triggerSort(updated);
+    // 시간 또는 duration 변경 시 하위 항목들 자동 조정 (겹침 방지)
+    if (field === 'time' || field === 'duration') {
+      for (let j = index + 1; j < updated.length; j++) {
+        const prev = updated[j - 1];
+        const prevEnd = timeToMinutes(addTime(prev.time, prev.duration));
+        const currStart = timeToMinutes(updated[j].time);
+        if (currStart < prevEnd) {
+          updated[j] = { ...updated[j], time: addTime(prev.time, prev.duration) };
+        }
+      }
     }
 
     // 활동 내용 변경 시 태그 자동 변경 감지 (디바운스)
