@@ -10,12 +10,12 @@ import { analyzeRoutines } from "@/lib/analysis-engine";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
-  { time: "08:00", activity: "이메일 확인 및 답장", duration: 1 },
-  { time: "09:00", activity: "AI로 리서치 자료 정리", duration: 2 },
-  { time: "11:00", activity: "보고서 작성", duration: 1 },
-  { time: "13:00", activity: "점심 식사 및 산책", duration: 1 },
-  { time: "14:00", activity: "코딩 및 개발 작업", duration: 3 },
-  { time: "17:00", activity: "유튜브 시청", duration: 1 },
+  { time: "08:00", activity: "이메일 확인 및 답장", duration: 1, tag: "📧 단순 행정" },
+  { time: "09:00", activity: "AI로 리서치 자료 정리", duration: 2, tag: "📚 자기계발" },
+  { time: "11:00", activity: "보고서 작성", duration: 1, tag: "📧 단순 행정" },
+  { time: "13:00", activity: "점심 식사 및 산책", duration: 1, tag: "🥗 식사/요리" },
+  { time: "14:00", activity: "코딩 및 개발 작업", duration: 3, tag: "💻 전문 업무" },
+  { time: "17:00", activity: "유튜브 시청", duration: 1, tag: "🎬 미디어 감상" },
 ];
 
 type Step = "input" | "analyzing" | "emailGate" | "result";
