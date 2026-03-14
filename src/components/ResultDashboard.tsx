@@ -446,24 +446,18 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         )}
       </div>
 
-      {/* AI 역제안 (Recommendations) */}
-      {result.recommendations && result.recommendations.length > 0 && (
-        <div className="glass-card rounded-3xl p-8">
-          <div className="flex items-center gap-2 mb-5">
-            <Lightbulb className="w-5 h-5 text-primary" />
-            <h3 className="text-base font-semibold text-foreground">AI 역제안 — 맞춤 도구 추천</h3>
-          </div>
-          <div className="space-y-3">
-            {result.recommendations.map((rec, i) => (
-              <div key={i} className="flex items-start gap-3 p-4 rounded-2xl bg-secondary/50 border border-border/30">
-                <span className="text-2xl shrink-0">{rec.icon}</span>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{rec.tool}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{rec.reason}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* 잠식 없을 때만 독립 역제안 표시 */}
+      {result.timeReport.erosionHr <= 0 && result.recommendations && result.recommendations.length > 0 && (
+        <div className="glass-card rounded-3xl p-6">
+          <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1">💡 AI 역제안</p>
+          {result.recommendations.map((rec, i) => (
+            <div key={i} className="flex items-center gap-2 mb-2 last:mb-0">
+              <span className="text-sm shrink-0">{rec.icon}</span>
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">{rec.tool}</strong> — {rec.reason}
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
