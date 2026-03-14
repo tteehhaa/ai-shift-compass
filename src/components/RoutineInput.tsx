@@ -47,11 +47,30 @@ const GROUP_LABELS: { group: TagGroup; color: string }[] = [
 
 function TagSelector({ value, onChange }: { value: TagCategory; onChange: (tag: TagCategory) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  const updatePos = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) updatePos();
+  }, [open, updatePos]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        buttonRef.current && !buttonRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -60,11 +79,12 @@ function TagSelector({ value, onChange }: { value: TagCategory; onChange: (tag: 
   const config = TAG_CONFIG[value];
 
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
-        className="text-xs font-medium px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap"
+        className="text-xs font-medium px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0"
         style={{
           color: config.color,
           backgroundColor: config.bgColor,
@@ -73,38 +93,39 @@ function TagSelector({ value, onChange }: { value: TagCategory; onChange: (tag: 
       >
         {value}
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-lg p-2 min-w-[200px]"
-          >
-            {GROUP_LABELS.map(({ group, color }) => (
-              <div key={group} className="mb-1.5 last:mb-0">
-                <p className="text-[10px] font-semibold px-2 py-0.5" style={{ color }}>
-                  {group}
-                </p>
-                {TAG_GROUPS[group].map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => { onChange(tag); setOpen(false); }}
-                    className={`w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors ${
-                      value === tag ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+      {open && createPortal(
+        <motion.div
+          ref={dropdownRef}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.15 }}
+          className="fixed bg-card border border-border rounded-xl shadow-xl p-2 min-w-[200px] max-h-[320px] overflow-y-auto"
+          style={{ top: pos.top, left: pos.left, zIndex: 9999 }}
+        >
+          {GROUP_LABELS.map(({ group, color }) => (
+            <div key={group} className="mb-1.5 last:mb-0">
+              <p className="text-[10px] font-semibold px-2 py-0.5" style={{ color }}>
+                {group}
+              </p>
+              {TAG_GROUPS[group].map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => { onChange(tag); setOpen(false); }}
+                  className={`w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors ${
+                    value === tag ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          ))}
+        </motion.div>,
+        document.body
+      )}
+    </>
   );
 }
 
