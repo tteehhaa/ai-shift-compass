@@ -71,7 +71,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
   const timeGroups = [
     {
-      label: "위험 · 잠식",
+      label: "위험 · AI 영향",
       items: [{ key: "erosion" as const, hr: result.timeReport.erosionHr }],
       color: TIME_CATEGORY_COLORS.erosion,
     },
