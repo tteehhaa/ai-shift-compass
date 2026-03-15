@@ -485,7 +485,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {mcdonalds > 0 && (
             <div className="flex items-center gap-1.5 justify-end mb-1">
               <span className="text-lg">🍔</span>
-              <span className="text-xs text-muted-foreground">빅맥 {mcdonalds}세트</span>
+              <span className="text-xs text-muted-foreground">빅맥 {mcdonalds}개</span>
             </div>
           )}
 
