@@ -27,7 +27,7 @@ interface ResultDashboardProps {
 }
 
 function getCoffeeCount(value: number) {
-  return Math.floor(value / 5000);
+  return Math.floor(value / 4700);
 }
 function getMcdonaldsCount(value: number) {
   return Math.floor(value / 5500);
