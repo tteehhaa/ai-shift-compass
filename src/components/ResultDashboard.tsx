@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 import type { AnalysisResult } from "@/lib/types";
-import { Lock, Unlock, Loader2 } from "lucide-react";
+import { Lock, Unlock, Loader2, Shield } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 import CommunityRanking from "@/components/CommunityRanking";
 import {
   REPLACEMENT_COLORS,
