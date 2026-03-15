@@ -391,7 +391,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 ) : (
                   <>
                     <Unlock className="w-5 h-5" />
-                    0원에 전체 결과 잠금 해제하기
+                    상세 결과 확인하기
                   </>
                 )}
               </button>
@@ -399,7 +399,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
             <div className="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-muted-foreground/60">
               <Shield className="w-3 h-3" />
-              <span>실제 결제는 발생하지 않습니다 · 베타 기간 한정 무료</span>
+              <span>실제 결제는 발생하지 않으며, 버튼 클릭 시 즉시 열람할 수 있습니다.</span>
             </div>
           </div>
         </div>
