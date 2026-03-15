@@ -5,7 +5,6 @@ import RoutineInput from "@/components/RoutineInput";
 import AnalysisAnimation from "@/components/AnalysisAnimation";
 import ResultDashboard from "@/components/ResultDashboard";
 import ShareCards from "@/components/ShareCards";
-import EmailGate from "@/components/EmailGate";
 import { analyzeRoutines } from "@/lib/analysis-engine";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
@@ -63,13 +62,9 @@ export default function Index() {
   const handleAnalysisComplete = useCallback(() => {
     const res = analyzeRoutines(routines, mbti);
     setResult(res);
-    setStep("emailGate");
-  }, [routines, mbti]);
-
-  const handleEmailGateContinue = () => {
     setStep("result");
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, [routines, mbti]);
 
   const handleReset = () => {
     setStep("input");
@@ -154,10 +149,6 @@ export default function Index() {
         )}
 
         {step === "analyzing" && <AnalysisAnimation onComplete={handleAnalysisComplete} />}
-
-        {step === "emailGate" && result && (
-          <EmailGate mbti={mbti} shiftIndex={result.shiftIndex} onContinue={handleEmailGateContinue} />
-        )}
 
         {step === "result" && result && (
           <div className="space-y-8 pb-10">
