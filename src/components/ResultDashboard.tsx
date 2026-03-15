@@ -326,13 +326,14 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 <Lock className="w-7 h-7 text-blue-500" />
               </div>
               <h3 className="text-lg font-bold text-foreground mb-2">
-                잠깐! 나의 AI 기회비용과 상세 분석 결과가 준비되었습니다.
+                상세 분석 리포트가 완성되었습니다.
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                나의 AI 기회비용을 확인하고 상세 리포트를 이메일로 소장하세요.
-                <br />
-                <strong className="text-blue-600">베타 기간 한정 0원!</strong>{" "}
-                <span className="text-muted-foreground">(정가 <span className="line-through">9,900원</span>)</span>
+              <p className="text-sm text-muted-foreground mb-6">
+                지금 바로 확인하세요.
+              </p>
+              <p className="text-xs text-muted-foreground mb-6">
+                <strong className="text-blue-600">베타 기간 한정 0원</strong>{" "}
+                <span className="line-through">(정가 9,900원)</span>
               </p>
             </div>
 
