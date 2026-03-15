@@ -47,6 +47,22 @@ function getErosionMetaphor(erosionHr: number): string {
 export default function ResultDashboard({ result, mbti, onShowShare }: ResultDashboardProps) {
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+
+  const handleUnlock = useCallback(() => {
+    setIsUnlocking(true);
+    console.log("[Paywall] 잠금 해제 버튼 클릭됨", { mbti, shiftIndex: result.shiftIndex, timestamp: new Date().toISOString() });
+    setTimeout(() => {
+      setIsUnlocking(false);
+      setIsUnlocked(true);
+      console.log("[Paywall] 잠금 해제 완료");
+      toast({
+        title: "결제가 완료되었습니다!",
+        description: "상세 리포트 잠금이 해제됩니다.",
+      });
+    }, 1500);
+  }, [mbti, result.shiftIndex]);
 
   const levelDurations: Record<string, number> = {
     critical: 0,
