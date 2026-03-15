@@ -52,20 +52,49 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
   const [showTimeLegend, setShowTimeLegend] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [paywallEmail, setPaywallEmail] = useState("");
+  const [paywallAgreed, setPaywallAgreed] = useState(false);
 
-  const handleUnlock = useCallback(() => {
+  const handleUnlock = useCallback(async () => {
+    const parsed = emailSchema.safeParse(paywallEmail);
+    if (!parsed.success) {
+      toast({ title: parsed.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+    if (!paywallAgreed) {
+      toast({ title: "개인정보 수집 및 이용에 동의해주세요.", variant: "destructive" });
+      return;
+    }
+
     setIsUnlocking(true);
-    console.log("[Paywall] 잠금 해제 버튼 클릭됨", { mbti, shiftIndex: result.shiftIndex, timestamp: new Date().toISOString() });
-    setTimeout(() => {
-      setIsUnlocking(false);
-      setIsUnlocked(true);
-      console.log("[Paywall] 잠금 해제 완료");
-      toast({
-        title: "결제가 완료되었습니다!",
-        description: "상세 리포트 잠금이 해제됩니다.",
+    console.log("[Paywall] 잠금 해제 시도", { email: parsed.data, mbti, shiftIndex: result.shiftIndex, timestamp: new Date().toISOString() });
+
+    try {
+      const { error } = await supabase.from("email_subscribers").insert({
+        email: parsed.data,
+        mbti: mbti || null,
+        shift_index: result.shiftIndex,
       });
-    }, 1500);
-  }, [mbti, result.shiftIndex]);
+
+      if (error && error.code !== "23505") {
+        throw error;
+      }
+
+      // 1.5초 결제 시뮬레이션
+      setTimeout(() => {
+        setIsUnlocking(false);
+        setIsUnlocked(true);
+        console.log("[Paywall] 잠금 해제 완료");
+        toast({
+          title: "결제가 완료되었습니다!",
+          description: "상세 리포트 잠금이 해제됩니다.",
+        });
+      }, 1500);
+    } catch {
+      setIsUnlocking(false);
+      toast({ title: "잠시 후 다시 시도해주세요.", variant: "destructive" });
+    }
+  }, [paywallEmail, paywallAgreed, mbti, result.shiftIndex]);
 
   const levelDurations: Record<string, number> = {
     critical: 0,
