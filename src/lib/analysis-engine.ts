@@ -198,10 +198,10 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const shiftIndex = Math.round(((totalHr - timeReport.humanHr) / totalHr) * 100);
 
   // A. 기회비용 산출
-  // 생산성 태그: (시간 * AI대체지수 0.7 * 시급) = "AI 활용 시 절약 가능한 가치"
+  // 생산성 시간: 시간 * 시급 (가중치 없이 순수 시간 가치)
   const productivityValue = routines
     .filter(r => TAG_CONFIG[r.tag].group === '생산성')
-    .reduce((s, r) => s + r.duration * AI_LEVERAGE_FACTOR * HOURLY_VALUE, 0);
+    .reduce((s, r) => s + r.duration * HOURLY_VALUE, 0);
 
   const economicDaily = Math.round(productivityValue);
 
