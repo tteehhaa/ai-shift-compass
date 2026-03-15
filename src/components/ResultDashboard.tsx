@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { AnalysisResult } from "@/lib/types";
+import { Lock, Unlock, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import CommunityRanking from "@/components/CommunityRanking";
 import {
   REPLACEMENT_COLORS,
@@ -45,6 +47,22 @@ function getErosionMetaphor(erosionHr: number): string {
 export default function ResultDashboard({ result, mbti, onShowShare }: ResultDashboardProps) {
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+
+  const handleUnlock = useCallback(() => {
+    setIsUnlocking(true);
+    console.log("[Paywall] 잠금 해제 버튼 클릭됨", { mbti, shiftIndex: result.shiftIndex, timestamp: new Date().toISOString() });
+    setTimeout(() => {
+      setIsUnlocking(false);
+      setIsUnlocked(true);
+      console.log("[Paywall] 잠금 해제 완료");
+      toast({
+        title: "결제가 완료되었습니다!",
+        description: "상세 리포트 잠금이 해제됩니다.",
+      });
+    }, 1500);
+  }, [mbti, result.shiftIndex]);
 
   const levelDurations: Record<string, number> = {
     critical: 0,
@@ -264,6 +282,54 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           </div>
         )}
       </div>
+
+      {/* ══════════════════════════════════════════════
+          PAYWALL GATE — 3페이지 진입 전 잠금 화면
+         ══════════════════════════════════════════════ */}
+      {!isUnlocked && (
+        <div className="relative">
+          {/* Paywall Card */}
+          <div className="rounded-3xl border-2 border-blue-200 bg-white p-8 text-center shadow-lg relative z-10">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mb-5">
+              <Lock className="w-7 h-7 text-blue-500" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">
+              잠깐! 나의 AI 기회비용과 상세 분석 결과가 준비되었습니다.
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+              본 진단은 정식 유료 서비스(<span className="line-through">9,900원</span>)이나,
+              <br />
+              현재 <strong className="text-blue-600">베타 출시 기념</strong>으로 전체 결과를{" "}
+              <strong className="text-blue-600">무료(0원)</strong> 공개 중입니다.
+            </p>
+            <button
+              onClick={handleUnlock}
+              disabled={isUnlocking}
+              className="w-full rounded-2xl bg-blue-600 text-white py-4 font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-80"
+            >
+              {isUnlocking ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  결제 중...
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-5 h-5" />
+                  0원에 전체 결과 잠금 해제하기
+                </>
+              )}
+            </button>
+            <p className="text-[11px] text-muted-foreground mt-3">
+              💳 실제 결제는 발생하지 않습니다 · 베타 기간 한정 무료
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════
+          LOCKED CONTENT (Pages 3~5) — Blur when locked
+         ══════════════════════════════════════════════ */}
+      <div className={!isUnlocked ? "blur-md select-none pointer-events-none opacity-60" : ""}>
 
       {/* ══════════════════════════════════════════════
           Economic Value — Emotional Storytelling Cards
@@ -521,6 +587,8 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
       {/* Email Signup */}
       <EmailSignup mbti={mbti} shiftIndex={result.shiftIndex} />
+
+      </div>{/* End blur wrapper */}
     </div>
   );
 }
