@@ -652,7 +652,10 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* Share CTA */}
+      {/* Community Ranking */}
+      <CommunityRanking activities={result.activities} />
+
+      {/* Share CTA - moved below Community Ranking */}
       <button
         onClick={onShowShare}
         className="w-full rounded-2xl border border-[#E85D22] text-[#E85D22] py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:bg-[#E85D22] hover:text-white active:scale-[0.97]"
@@ -660,9 +663,6 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         <Share2 className="w-4 h-4" />
         결과 공유하기
       </button>
-
-      {/* Community Ranking */}
-      <CommunityRanking activities={result.activities} />
 
       </div>{/* End blur wrapper */}
     </div>
