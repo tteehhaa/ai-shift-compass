@@ -198,12 +198,9 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const shiftIndex = Math.round(((totalHr - timeReport.humanHr) / totalHr) * 100);
 
   // A. 기회비용 산출
-  // 생산성 태그: (시간 * AI대체지수 0.7 * 시급) = "AI 활용 시 절약 가능한 가치"
-  const productivityValue = routines
-    .filter(r => TAG_CONFIG[r.tag].group === '생산성')
-    .reduce((s, r) => s + r.duration * AI_LEVERAGE_FACTOR * HOURLY_VALUE, 0);
-
-  const economicDaily = Math.round(productivityValue);
+  // 생산성 확보 시간: (gainHr + augmentHr) * 시급 (가중치 없이 순수 시간 가치)
+  const productiveHours = timeReport.gainHr + timeReport.augmentHr;
+  const economicDaily = Math.round(productiveHours * HOURLY_VALUE);
 
   // 잠식 손실: 디지털 소비는 도파민잠식지수 1.2 적용, 나머지 critical/high는 시급 기준
   const digitalErosion = routines
