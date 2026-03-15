@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { AnalysisResult } from "@/lib/types";
+import { Lock, Unlock, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import CommunityRanking from "@/components/CommunityRanking";
 import {
   REPLACEMENT_COLORS,
