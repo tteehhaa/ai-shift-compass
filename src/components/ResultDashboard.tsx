@@ -15,8 +15,9 @@ import {
 } from "@/lib/analysis-engine";
 import { cn } from "@/lib/utils";
 import { TrendingUp, Clock, Share2, Info, ChevronDown, ChevronUp, Coffee } from "lucide-react";
-import EmailSignup from "@/components/EmailSignup";
 import CountUp from "@/components/CountUp";
+
+const emailSchema = z.string().trim().email("올바른 이메일 주소를 입력해주세요.").max(255);
 
 interface ResultDashboardProps {
   result: AnalysisResult;
