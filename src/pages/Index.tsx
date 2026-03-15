@@ -149,7 +149,6 @@ export default function Index() {
         )}
 
         {step === "analyzing" && <AnalysisAnimation onComplete={handleAnalysisComplete} />}
-        )}
 
         {step === "result" && result && (
           <div className="space-y-8 pb-10">
