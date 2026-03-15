@@ -27,7 +27,7 @@ interface ResultDashboardProps {
 }
 
 function getCoffeeCount(value: number) {
-  return Math.floor(value / 5000);
+  return Math.floor(value / 4700);
 }
 function getMcdonaldsCount(value: number) {
   return Math.floor(value / 5500);
@@ -162,17 +162,22 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
   return (
     <div className="space-y-8 pb-10">
       {/* ── #6 Credential Badges (replaces old Info block) ── */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {SOURCE_BADGES.map((b) => (
-          <Badge
-            key={b.label}
-            variant="outline"
-            className="text-[10px] font-medium px-3 py-1 border-border/50"
-          >
-            <span className="w-1.5 h-1.5 rounded-full mr-1.5 inline-block" style={{ backgroundColor: b.color }} />
-            {b.label}
-          </Badge>
-        ))}
+      <div className="glass-card rounded-2xl p-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+          {SOURCE_BADGES.map((b) => (
+            <Badge
+              key={b.label}
+              variant="outline"
+              className="text-[10px] font-medium px-3 py-1 border-border/50"
+            >
+              <span className="w-1.5 h-1.5 rounded-full mr-1.5 inline-block" style={{ backgroundColor: b.color }} />
+              {b.label}
+            </Badge>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
+          본 진단은 Anthropic의 AI Economic Index(AEI), OECD 직업별 AI 노출도 연구, Dario Amodei의 AI 영향력 분석 프레임워크를 기반으로 설계되었습니다.
+        </p>
       </div>
 
       {/* ── Hero: Shift Index ── */}
@@ -480,7 +485,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
           {mcdonalds > 0 && (
             <div className="flex items-center gap-1.5 justify-end mb-1">
               <span className="text-lg">🍔</span>
-              <span className="text-xs text-muted-foreground">빅맥 {mcdonalds}세트</span>
+              <span className="text-xs text-muted-foreground">빅맥 {mcdonalds}개</span>
             </div>
           )}
 
