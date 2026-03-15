@@ -663,9 +663,6 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       {/* Community Ranking */}
       <CommunityRanking activities={result.activities} />
 
-      {/* Email Signup */}
-      <EmailSignup mbti={mbti} shiftIndex={result.shiftIndex} />
-
       </div>{/* End blur wrapper */}
     </div>
   );
