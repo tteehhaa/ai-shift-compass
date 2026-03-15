@@ -326,13 +326,14 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 <Lock className="w-7 h-7 text-blue-500" />
               </div>
               <h3 className="text-lg font-bold text-foreground mb-2">
-                잠깐! 나의 AI 기회비용과 상세 분석 결과가 준비되었습니다.
+                상세 분석 리포트가 완성되었습니다.
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                나의 AI 기회비용을 확인하고 상세 리포트를 이메일로 소장하세요.
-                <br />
-                <strong className="text-blue-600">베타 기간 한정 0원!</strong>{" "}
-                <span className="text-muted-foreground">(정가 <span className="line-through">9,900원</span>)</span>
+              <p className="text-sm text-muted-foreground mb-6">
+                지금 바로 확인하세요.
+              </p>
+              <p className="text-xs text-muted-foreground mb-6">
+                <strong className="text-blue-600">베타 기간 한정 0원</strong>{" "}
+                <span className="line-through">(정가 9,900원)</span>
               </p>
             </div>
 
@@ -390,7 +391,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
                 ) : (
                   <>
                     <Unlock className="w-5 h-5" />
-                    0원에 전체 결과 잠금 해제하기
+                    상세 결과 확인하기
                   </>
                 )}
               </button>
@@ -398,7 +399,7 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
             <div className="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-muted-foreground/60">
               <Shield className="w-3 h-3" />
-              <span>실제 결제는 발생하지 않습니다 · 베타 기간 한정 무료</span>
+              <span>실제 결제는 발생하지 않으며, 버튼 클릭 시 즉시 열람할 수 있습니다.</span>
             </div>
           </div>
         </div>
@@ -651,7 +652,10 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         </div>
       </div>
 
-      {/* Share CTA */}
+      {/* Community Ranking */}
+      <CommunityRanking activities={result.activities} />
+
+      {/* Share CTA - moved below Community Ranking */}
       <button
         onClick={onShowShare}
         className="w-full rounded-2xl border border-[#E85D22] text-[#E85D22] py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:bg-[#E85D22] hover:text-white active:scale-[0.97]"
@@ -659,9 +663,6 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
         <Share2 className="w-4 h-4" />
         결과 공유하기
       </button>
-
-      {/* Community Ranking */}
-      <CommunityRanking activities={result.activities} />
 
       </div>{/* End blur wrapper */}
     </div>
