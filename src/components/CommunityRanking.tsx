@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { AnalyzedActivity } from "@/lib/types";
 import { Trophy, Medal } from "lucide-react";
 import { REPLACEMENT_COLORS, REPLACEMENT_LABELS } from "@/lib/analysis-engine";
+import { normalizeActivityName } from "@/lib/normalize-activity";
 
 interface CommunityRankingProps {
   activities: AnalyzedActivity[];
@@ -15,20 +16,20 @@ interface RankedActivity {
   count: number;
 }
 
-// Save activities to ranking table
+// Save activities to ranking table with normalized names
 export async function saveActivitiesToRanking(activities: AnalyzedActivity[]) {
   const validActivities = activities.filter(
     (a) => a.activity.trim() && a.replacement_level !== "human"
   );
 
   for (const act of validActivities) {
-    const name = act.activity.trim();
-    if (!name) continue;
+    const normalized = normalizeActivityName(act.activity);
+    if (!normalized) continue;
 
     const { data: existing } = await supabase
       .from("activity_rankings")
       .select("id, count")
-      .eq("activity_name", name)
+      .eq("activity_name", normalized)
       .maybeSingle();
 
     if (existing) {
@@ -41,7 +42,7 @@ export async function saveActivitiesToRanking(activities: AnalyzedActivity[]) {
         .eq("id", existing.id);
     } else {
       await supabase.from("activity_rankings").insert({
-        activity_name: name,
+        activity_name: normalized,
         replacement_score: act.replacement_score,
         replacement_level: act.replacement_level,
         category: act.category,
