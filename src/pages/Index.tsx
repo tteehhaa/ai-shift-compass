@@ -67,6 +67,18 @@ export default function Index() {
     setResult(res);
     setStep("result");
     window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // ⭐️ 진단 결과를 DB에 비동기 저장
+    try {
+      await supabase.from("diagnosis_results").insert({
+        mbti: mbti,
+        routines: routines as unknown as import("@/integrations/supabase/types").Json,
+        result_data: res as unknown as import("@/integrations/supabase/types").Json,
+        shift_index: res.shiftIndex,
+      });
+    } catch (dbError) {
+      console.error("결과 저장 실패:", dbError);
+    }
   }, [routines, mbti]);
 
   const handleReset = () => {
