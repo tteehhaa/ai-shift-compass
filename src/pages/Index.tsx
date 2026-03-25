@@ -6,6 +6,7 @@ import AnalysisAnimation from "@/components/AnalysisAnimation";
 import ResultDashboard from "@/components/ResultDashboard";
 import ShareCards from "@/components/ShareCards";
 import { analyzeRoutines } from "@/lib/analysis-engine";
+import { fetchAlgorithmConfig } from "@/lib/algorithm-config";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
@@ -59,8 +60,9 @@ export default function Index() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleAnalysisComplete = useCallback(() => {
-    const res = analyzeRoutines(routines, mbti);
+  const handleAnalysisComplete = useCallback(async () => {
+    const config = await fetchAlgorithmConfig();
+    const res = analyzeRoutines(routines, mbti, config);
     setResult(res);
     setStep("result");
     window.scrollTo({ top: 0, behavior: "smooth" });
