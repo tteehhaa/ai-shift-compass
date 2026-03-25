@@ -10,10 +10,8 @@ import type {
   AIRecommendation,
 } from "./types";
 import { TAG_CONFIG } from "./types";
-
-const HOURLY_VALUE = 10030; // 2025 최저시급
-const DOPAMINE_EROSION_FACTOR = 1.2;
-const AI_LEVERAGE_FACTOR = 0.7;
+import type { AlgorithmConfig } from "./algorithm-config";
+import { DEFAULT_CONFIG } from "./algorithm-config";
 
 // Tag → ActivityCategory 매핑
 function tagToCategory(tag: TagCategory): ActivityCategory {
@@ -39,39 +37,39 @@ function tagToInvolvement(tag: TagCategory): AIInvolvement {
   const group = TAG_CONFIG[tag].group;
   if (group === '생산성') return 'active';
   if (group === '디지털 소비') return 'passive';
-  return 'none'; // 오프라인/에너지, 생활 루틴
+  return 'none';
 }
 
-// Compression rates by tag
-function getCompressionRate(tag: TagCategory): number {
+// Dynamic compression rates
+function getCompressionRate(tag: TagCategory, cfg: AlgorithmConfig): number {
   switch (tag) {
-    case '💻 전문 업무': return 4.5;
-    case '📧 단순 행정': return 5.0;
-    case '📚 자기계발': return 4.0;
-    default: return 1.0;
+    case '💻 전문 업무': return cfg.compressionRates.전문업무;
+    case '📧 단순 행정': return cfg.compressionRates.단순행정;
+    case '📚 자기계발': return cfg.compressionRates.자기계발;
+    default: return cfg.compressionRates.기본;
   }
 }
 
-// Tag-based replacement score
-function getReplacementScore(tag: TagCategory, activity: string): number {
+// Dynamic replacement score
+function getReplacementScore(tag: TagCategory, activity: string, cfg: AlgorithmConfig): number {
   const t = activity.toLowerCase();
   switch (tag) {
-    case '📧 단순 행정': return 85;
-    case '📚 자기계발': return 70;
+    case '📧 단순 행정': return cfg.replacementScores.단순행정;
+    case '📚 자기계발': return cfg.replacementScores.자기계발;
     case '💻 전문 업무':
-      if (/코딩|개발|프로그래밍/.test(t)) return 60;
-      if (/기획|전략|디자인/.test(t)) return 45;
-      return 55;
-    case '📱 소셜 미디어': return 92;
-    case '🎬 미디어 감상': return 88;
+      if (/코딩|개발|프로그래밍/.test(t)) return cfg.replacementScores.전문업무_코딩;
+      if (/기획|전략|디자인/.test(t)) return cfg.replacementScores.전문업무_기획;
+      return cfg.replacementScores.전문업무_기본;
+    case '📱 소셜 미디어': return cfg.replacementScores.소셜미디어;
+    case '🎬 미디어 감상': return cfg.replacementScores.미디어감상;
     case '🏃 운동/활동':
     case '🤝 대면 소통':
     case '🛌 휴식/수면':
-    case '🚗 운전': return 5;
+    case '🚗 운전': return cfg.replacementScores.오프라인;
     case '🥗 식사/요리':
     case '🧹 집안일/쇼핑':
-    case '➕ 기타': return 10;
-    default: return 10;
+    case '➕ 기타': return cfg.replacementScores.생활루틴;
+    default: return cfg.replacementScores.생활루틴;
   }
 }
 
@@ -85,15 +83,13 @@ function getReplacementLevel(score: number, involvement: AIInvolvement): Replace
   return "human";
 }
 
-// AI 역제안: 입력 데이터에서 가장 효과적인 1개만 추천
+// AI 역제안: 가장 효과적인 1개만 추천
 function generateRecommendations(routines: RoutineEntry[]): AIRecommendation[] {
   const allText = routines.map(r => r.activity.toLowerCase()).join(' ');
 
-  // 각 추천 후보에 실제 투입 시간(시간) 기반 점수 부여
   type Candidate = AIRecommendation & { score: number };
   const candidates: Candidate[] = [];
 
-  // 키워드 + 태그 매칭 → 해당 활동의 총 duration을 점수로
   const keywordRules: { pattern: RegExp; tags: TagCategory[]; tool: string; reason: string; icon: string }[] = [
     { pattern: /엑셀|데이터|스프레드시트|분석/, tags: ['📧 단순 행정', '💻 전문 업무'], tool: 'ChatGPT Advanced Data Analysis', reason: '데이터 분석·시각화를 자동화하여 엑셀 작업 시간을 80% 단축할 수 있습니다.', icon: '📊' },
     { pattern: /메일|이메일|영어|번역/, tags: ['📧 단순 행정'], tool: 'DeepL / Grammarly', reason: '영문 이메일·번역을 AI가 자연스럽게 처리하여 소통 시간을 절약합니다.', icon: '✉️' },
@@ -105,7 +101,6 @@ function generateRecommendations(routines: RoutineEntry[]): AIRecommendation[] {
 
   for (const rule of keywordRules) {
     if (rule.pattern.test(allText)) {
-      // 매칭되는 활동들의 총 시간을 점수로
       const matchedHours = routines
         .filter(r => rule.pattern.test(r.activity.toLowerCase()) || rule.tags.includes(r.tag))
         .reduce((s, r) => s + r.duration, 0);
@@ -115,7 +110,6 @@ function generateRecommendations(routines: RoutineEntry[]): AIRecommendation[] {
     }
   }
 
-  // 태그 기반: 디지털 소비가 많으면 스크린타임 관리 추천
   const digitalHours = routines
     .filter(r => r.tag === '📱 소셜 미디어' || r.tag === '🎬 미디어 감상')
     .reduce((s, r) => s + r.duration, 0);
@@ -123,13 +117,11 @@ function generateRecommendations(routines: RoutineEntry[]): AIRecommendation[] {
     candidates.push({ tool: '스크린타임 관리 앱', reason: `하루 ${digitalHours}시간의 디지털 소비 시간을 줄여 생산성 향상에 투자하세요.`, icon: '📱', score: digitalHours });
   }
 
-  // 생산성 태그가 전혀 없으면 범용 추천
   const hasProductivity = routines.some(r => TAG_CONFIG[r.tag].group === '생산성');
   if (!hasProductivity && candidates.length === 0) {
     candidates.push({ tool: 'AI 업무 효율화 도구', reason: '일상의 반복 업무에 AI를 도입하면 하루 1~2시간의 여유를 확보할 수 있습니다.', icon: '🚀', score: 1 });
   }
 
-  // 점수 기준 정렬 후 가장 높은 1개만 반환
   candidates.sort((a, b) => b.score - a.score);
   if (candidates.length === 0) return [];
   const best = candidates[0];
@@ -156,13 +148,15 @@ const PERSONA_MAP: Record<string, any> = {
   ESFP: { name: "AI 크리에이터", emoji: "🎬", title: "AI 시대의 엔터테이너", desc: "AI로 즐거운 콘텐츠를 만드는 제작자.", compatible: "ISTJ", compatiblePersona: "AI 최적화러", compatibleEmoji: "⚙️", compatibleReason: "당신의 창의적 콘텐츠 제작 과정을 효율적으로 시스템화해줄 파트너입니다." },
 };
 
-export function analyzeRoutines(routines: RoutineEntry[], mbti: string): AnalysisResult {
+export function analyzeRoutines(routines: RoutineEntry[], mbti: string, config?: AlgorithmConfig): AnalysisResult {
+  const cfg = config || DEFAULT_CONFIG;
+
   const activities: AnalyzedActivity[] = routines.map((r) => {
     const category = tagToCategory(r.tag);
     const involvement = tagToInvolvement(r.tag);
-    const repScore = getReplacementScore(r.tag, r.activity);
+    const repScore = getReplacementScore(r.tag, r.activity, cfg);
     const level = getReplacementLevel(repScore, involvement);
-    const C = getCompressionRate(r.tag);
+    const C = getCompressionRate(r.tag, cfg);
     const savedTime = involvement === "active" ? Math.round(r.duration * (1 - 1 / C) * 10) / 10 : 0;
 
     return {
@@ -197,21 +191,17 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
   const humanPercent = Math.round((timeReport.humanHr / totalHr) * 100);
   const shiftIndex = Math.round(((totalHr - timeReport.humanHr) / totalHr) * 100);
 
-  // A. 기회비용 산출
-  // 생산성 확보 시간: (gainHr + augmentHr) * 시급 (가중치 없이 순수 시간 가치)
   const productiveHours = timeReport.gainHr + timeReport.augmentHr;
-  const economicDaily = Math.round(productiveHours * HOURLY_VALUE);
+  const economicDaily = Math.round(productiveHours * cfg.hourlyValue);
 
-  // 잠식 손실: 디지털 소비는 도파민잠식지수 1.2 적용, 나머지 critical/high는 시급 기준
   const digitalErosion = routines
     .filter(r => TAG_CONFIG[r.tag].group === '디지털 소비')
-    .reduce((s, r) => s + r.duration * DOPAMINE_EROSION_FACTOR * HOURLY_VALUE, 0);
+    .reduce((s, r) => s + r.duration * cfg.dopamineErosionFactor * cfg.hourlyValue, 0);
   const otherErosion = (timeReport.erosionHr - routines
     .filter(r => TAG_CONFIG[r.tag].group === '디지털 소비')
-    .reduce((s, r) => s + r.duration, 0)) * HOURLY_VALUE;
+    .reduce((s, r) => s + r.duration, 0)) * cfg.hourlyValue;
   const erosionCostDaily = Math.round(Math.max(0, digitalErosion + otherErosion));
 
-  // B. AI 역제안
   const recommendations = generateRecommendations(routines);
 
   const persona = PERSONA_MAP[mbti] || PERSONA_MAP["ISTJ"];
@@ -222,7 +212,6 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string): Analysi
     wellnessAdvice = `인간 고유 활동이 ${humanPercent}%로 매우 낮습니다. 의도적인 디지털 디톡스를 권장합니다.`;
   else if (humanPercent < 30) wellnessAdvice = `AI와 인간 활동의 균형을 잘 잡고 계시네요.`;
 
-  // C. 예외 처리: AI 활용도 0%인 경우
   if (shiftIndex === 0) {
     wellnessAdvice = '현재 AI를 활용하지 않고 계시네요. 비난이 아닌 기회입니다! 단순 업무부터 AI를 도입하면 귀중한 휴식 시간을 확보할 수 있어요.';
   }

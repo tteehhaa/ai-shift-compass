@@ -79,6 +79,33 @@ export type Database = {
         }
         Relationships: []
       }
+      algorithm_config: {
+        Row: {
+          config_key: string
+          config_value: number
+          description: string | null
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config_key: string
+          config_value: number
+          description?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: number
+          description?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       diagnosis_results: {
         Row: {
           created_at: string
