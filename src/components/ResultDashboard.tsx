@@ -659,6 +659,11 @@ export default function ResultDashboard({ result, mbti, routines, onShowShare }:
         <CommunityRanking activities={result.activities} />
       </div>
 
+      {/* Accuracy Feedback */}
+      <div className="mt-8">
+        <AccuracyFeedback diagnosisId={diagnosisId} />
+      </div>
+
       {/* Share CTA - bottom */}
       <button
         onClick={onShowShare}
