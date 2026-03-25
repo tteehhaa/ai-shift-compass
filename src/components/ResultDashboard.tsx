@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo } from "react";
-import type { AnalysisResult, AnalyzedActivity } from "@/lib/types";
+import type { AnalysisResult, AnalyzedActivity, RoutineEntry } from "@/lib/types";
 import { Lock, Unlock, Loader2, Shield } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import CommunityRanking from "@/components/CommunityRanking";
+import AccuracyFeedback from "@/components/AccuracyFeedback";
 import {
   REPLACEMENT_COLORS,
   REPLACEMENT_LABELS,
