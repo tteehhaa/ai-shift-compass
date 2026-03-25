@@ -146,8 +146,17 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
   );
 }
 
+// SNS platforms
+const SNS_PLATFORMS = [
+  { id: "instagram" as const, label: "인스타그램", emoji: "📸", scheme: "instagram://" },
+  { id: "threads" as const, label: "쓰레즈", emoji: "🧵", scheme: "barcelona://" },
+  { id: "kakaotalk" as const, label: "카카오톡", emoji: "💬", scheme: "kakaotalk://" },
+] as const;
+
+type PlatformId = typeof SNS_PLATFORMS[number]["id"];
+
 // ═══════════════════════════════════
-// Main Share Modal — 3 buttons only
+// Main Share Modal
 // ═══════════════════════════════════
 export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [copied, setCopied] = useState(false);
@@ -197,15 +206,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
   const getShareText = (url: string = shareUrl) => {
     const mbtiDisplay = mbti !== "UNKNOWN" ? mbti : "";
-    return `[ AI 라이프 시프트 : 나의 진단 리포트 ]
-
-나의 일상 중 ${result.shiftIndex}%가 AI로 대체 또는 활용될 수 있습니다.
-
-나의 AI 페르소나: ${result.personaEmoji} ${mbtiDisplay} ${result.persona} - ${result.personaTitle}
-
-나와 가장 잘 맞는 AI 파트너는 누구일까요?
-
-테스트 하기: ${SERVICE_URL}`;
+    return `[AI Life Shift 진단 결과]\n내 시프트 지수: ${result.shiftIndex}점\nMBTI 페르소나: ${result.personaEmoji} ${mbtiDisplay} ${result.persona} - ${result.personaTitle}\n\n나와 가장 잘 맞는 AI 파트너는 누구일까요?\n\n지금 확인해보세요! 🚀\n${url}`;
   };
 
   const captureCard = async (): Promise<Blob | null> => {
@@ -225,7 +226,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     }
   };
 
-  // 1. 이미지 다운로드
+  // ⭐️ 이미지 저장/공유 (Web Share API 우선)
   const handleDownload = async () => {
     setCapturing(true);
     const blob = await captureCard();
@@ -234,16 +235,34 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
       toast.error("이미지 생성에 실패했습니다.");
       return;
     }
+
+    const file = new File([blob], `ai-shift-${mbti}.png`, { type: "image/png" });
+
+    // 모바일: Web Share API로 이미지 직접 공유
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "나의 AI 시프트 지수 결과",
+          text: `나의 AI 시프트 지수는 ${result.shiftIndex}점! 당신의 일상은 얼마나 AI로 진화할 수 있을까요?`,
+        });
+        return;
+      } catch (e) {
+        if ((e as DOMException)?.name === "AbortError") return;
+      }
+    }
+
+    // 데스크탑: 다운로드 fallback
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "ai-shift-result.png";
+    a.download = `ai-shift-${mbti}.png`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("1080×1080 이미지가 저장되었습니다!");
+    toast.success("이미지가 저장되었습니다!");
   };
 
-  // 2. 결과 복사
+  // ⭐️ 결과 텍스트 복사
   const handleCopy = async () => {
     const url = await saveAndGetShareUrl();
     if (!url) return;
@@ -265,7 +284,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     }
   };
 
-  // 3. 공유하기 (Web Share API)
+  // ⭐️ 시스템 공유 (텍스트 + URL)
   const handleShare = async () => {
     const url = await saveAndGetShareUrl();
     if (!url) {
@@ -274,8 +293,8 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
     }
 
     const shareData: ShareData = {
-      title: "[ AI 라이프 시프트 : 나의 진단 리포트 ]",
-      text: `나의 일상 중 ${result.shiftIndex}%가 AI로 대체 또는 활용될 수 있습니다.\n\n나의 AI 페르소나: ${result.personaEmoji} ${mbti !== "UNKNOWN" ? mbti : ""} ${result.persona} - ${result.personaTitle}\n\n나와 가장 잘 맞는 AI 파트너는 누구일까요?`,
+      title: "AI Life Shift 진단 결과",
+      text: `나의 AI 시프트 지수는 ${result.shiftIndex}점!\n${result.personaEmoji} ${mbti !== "UNKNOWN" ? mbti : ""} ${result.persona}\n\n나와 가장 잘 맞는 AI 파트너는 누구일까요?`,
       url: url,
     };
 
@@ -288,12 +307,36 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
       }
     }
 
-    // Fallback: copy text instead
     await handleCopy();
   };
 
+  // ⭐️ SNS별 클립보드 복사 + 앱 딥링크
+  const handleSNSShare = async (platform: PlatformId) => {
+    const url = await saveAndGetShareUrl();
+    const text = getShareText(url || SERVICE_URL);
+    
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      ok = fallbackCopyText(text);
+    }
+
+    if (ok) {
+      toast.success("공유 문구가 복사되었습니다! 앱에서 붙여넣기 해주세요.");
+    }
+
+    const platformInfo = SNS_PLATFORMS.find(p => p.id === platform);
+    if (platformInfo) {
+      setTimeout(() => {
+        window.location.href = platformInfo.scheme;
+      }, 1200);
+    }
+  };
+
   const btnBase =
-    "flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-2xl border border-border/50 text-muted-foreground transition-all duration-200 hover:border-[#E85D22]/40 hover:text-[#E85D22] hover:bg-[#E85D22]/5 active:scale-[0.97] disabled:opacity-40";
+    "flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-2xl border border-border/50 text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] disabled:opacity-40";
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
@@ -319,7 +362,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
             </div>
           )}
 
-          {/* 3 action buttons */}
+          {/* 3 main action buttons */}
           <div className="flex gap-3">
             <button onClick={handleDownload} disabled={capturing} className={btnBase}>
               <Download className="w-5 h-5" />
@@ -335,6 +378,27 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
               <Share2 className="w-5 h-5" />
               <span className="text-xs font-medium">공유하기</span>
             </button>
+          </div>
+
+          {/* SNS shortcuts */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground text-center">SNS에 바로 공유하기</p>
+            <div className="flex gap-2 justify-center">
+              {SNS_PLATFORMS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleSNSShare(p.id)}
+                  disabled={savingLink}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border/50 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all active:scale-[0.97] disabled:opacity-40"
+                >
+                  <span>{p.emoji}</span>
+                  <span className="text-xs font-medium">{p.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 text-center">
+              버튼을 누르면 결과 문구가 자동 복사되고 앱이 열립니다
+            </p>
           </div>
         </div>
       </div>
