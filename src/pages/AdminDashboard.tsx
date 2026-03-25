@@ -51,6 +51,8 @@ export default function AdminDashboard() {
   const [sharedResults, setSharedResults] = useState<SharedResult[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
+  const [algorithmConfigs, setAlgorithmConfigs] = useState<{ config_key: string; config_value: number; updated_at: string; updated_by: string }[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "rankings" | "subscribers" | "shares" | "feedback" | "optimization">("overview");
 
   useEffect(() => {
