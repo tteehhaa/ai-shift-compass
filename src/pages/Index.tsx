@@ -7,6 +7,7 @@ import ResultDashboard from "@/components/ResultDashboard";
 import ShareCards from "@/components/ShareCards";
 import { analyzeRoutines } from "@/lib/analysis-engine";
 import { fetchAlgorithmConfig } from "@/lib/algorithm-config";
+import { supabase } from "@/integrations/supabase/client";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
