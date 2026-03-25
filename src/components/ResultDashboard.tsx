@@ -81,7 +81,7 @@ const SOURCE_BADGES = [
   { label: "Dario Amodei", color: "hsl(250, 50%, 50%)" },
 ];
 
-export default function ResultDashboard({ result, mbti, onShowShare }: ResultDashboardProps) {
+export default function ResultDashboard({ result, mbti, routines, onShowShare }: ResultDashboardProps) {
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
