@@ -79,12 +79,13 @@ export default function AdminDashboard() {
       return;
     }
 
-    const [rankingsRes, subscribersRes, sharesRes, feedbackRes, diagnosisRes] = await Promise.all([
+    const [rankingsRes, subscribersRes, sharesRes, feedbackRes, diagnosisRes, configRes] = await Promise.all([
       supabase.from("activity_rankings").select("*").order("count", { ascending: false }),
       supabase.from("email_subscribers").select("*").order("created_at", { ascending: false }),
       supabase.from("shared_results").select("id, mbti, created_at").order("created_at", { ascending: false }),
       supabase.from("accuracy_feedback" as any).select("*").order("created_at", { ascending: false }),
       supabase.from("diagnosis_results" as any).select("id, email, mbti, shift_index, created_at").order("created_at", { ascending: false }),
+      supabase.from("algorithm_config" as any).select("config_key, config_value, updated_at, updated_by").order("config_key"),
     ]);
 
     if (rankingsRes.data) setRankings(rankingsRes.data);
@@ -92,7 +93,27 @@ export default function AdminDashboard() {
     if (sharesRes.data) setSharedResults(sharesRes.data);
     if (feedbackRes.data) setFeedbacks(feedbackRes.data as any[]);
     if (diagnosisRes.data) setDiagnoses(diagnosisRes.data as any[]);
+    if (configRes.data) setAlgorithmConfigs(configRes.data as any[]);
     setLoading(false);
+  };
+
+  const handleRunOptimizer = async () => {
+    setIsOptimizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("optimize-weights", {
+        body: { trigger: "manual" },
+      });
+      if (error) throw error;
+      toast.success(`최적화 완료: ${data.adjustmentsApplied || 0}건 조정`);
+      // Refresh config
+      const { data: newConfig } = await supabase.from("algorithm_config" as any).select("config_key, config_value, updated_at, updated_by").order("config_key");
+      if (newConfig) setAlgorithmConfigs(newConfig as any[]);
+    } catch (e) {
+      toast.error("최적화 실행 실패");
+      console.error(e);
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   const handleLogout = async () => {
