@@ -566,13 +566,51 @@ export default function AdminDashboard() {
         {activeTab === "optimization" && (
           <div className="space-y-6">
             <div className="glass-card rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Settings2 className="w-5 h-5 text-primary" />
-                <h3 className="text-base font-semibold text-foreground">가중치 최적화 분석</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                  <h3 className="text-base font-semibold text-foreground">가중치 최적화 분석</h3>
+                </div>
+                <button
+                  onClick={handleRunOptimizer}
+                  disabled={isOptimizing}
+                  className="px-4 py-2 rounded-xl bg-foreground text-background text-xs font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                >
+                  {isOptimizing ? "최적화 중..." : "🔄 수동 실행"}
+                </button>
               </div>
               <p className="text-xs text-muted-foreground mb-4">
-                사용자 피드백 데이터를 기반으로 analysis-engine.ts의 가중치 조정을 제안합니다.
+                매일 03:00 KST에 자동 실행됩니다. 사용자 피드백 기반으로 가중치를 0.01 단위로 자동 조정합니다.
               </p>
+
+              {/* Live Config from DB */}
+              {algorithmConfigs.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-foreground mb-3">📊 현재 DB 가중치 (실시간)</h4>
+                  <div className="space-y-1.5">
+                    {algorithmConfigs.map((cfg) => {
+                      const isReplacementScore = cfg.config_key.startsWith("replacement_score.");
+                      const maxVal = isReplacementScore ? 100 : cfg.config_key === "hourly_value" ? 15000 : 10;
+                      const barWidth = Math.min(100, (cfg.config_value / maxVal) * 100);
+                      return (
+                        <div key={cfg.config_key} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/30">
+                          <span className="text-xs w-48 truncate font-mono">{cfg.config_key}</span>
+                          <div className="flex-1 h-3 bg-secondary/50 rounded-full overflow-hidden">
+                            <div className="h-full bg-foreground/20 rounded-full" style={{ width: `${barWidth}%` }} />
+                          </div>
+                          <span className="text-xs font-mono text-muted-foreground w-16 text-right">{cfg.config_value}</span>
+                          {cfg.updated_by === "auto-optimizer" && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">자동</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    마지막 업데이트: {algorithmConfigs[0]?.updated_at ? new Date(algorithmConfigs[0].updated_at).toLocaleString("ko-KR") : "-"}
+                  </p>
+                </div>
+              )}
 
               {!optimizationData ? (
                 <div className="p-6 rounded-2xl bg-secondary/50 text-center">
@@ -581,7 +619,6 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Key Metrics */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
                       <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate}%</p>
@@ -603,23 +640,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Current Weights */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-3">현재 대체 점수 가중치</h4>
-                    <div className="space-y-1.5">
-                      {Object.entries(optimizationData.currentWeights).map(([tag, score]) => (
-                        <div key={tag} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/30">
-                          <span className="text-sm w-40 truncate">{tag}</span>
-                          <div className="flex-1 h-3 bg-secondary/50 rounded-full overflow-hidden">
-                            <div className="h-full bg-foreground/20 rounded-full" style={{ width: `${score}%` }} />
-                          </div>
-                          <span className="text-xs font-mono text-muted-foreground w-10 text-right">{score}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Suggestions */}
                   <div>
                     <h4 className="text-sm font-semibold text-foreground mb-3">💡 조정 제안</h4>
                     <div className="space-y-2">
@@ -633,9 +653,8 @@ export default function AdminDashboard() {
 
                   <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
                     <p className="text-xs text-foreground leading-relaxed">
-                      <strong>⚠️ 참고:</strong> 이 제안은 수집된 피드백 패턴에 기반한 분석입니다.
-                      실제 가중치 변경은 <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">src/lib/analysis-engine.ts</code>의
-                      <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">getReplacementScore()</code> 함수를 수동으로 수정해주세요.
+                      <strong>⚠️ 자가 진화 모드:</strong> 가중치는 <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">algorithm_config</code> 테이블에서
+                      실시간 로드되며, 매일 자동 최적화됩니다. 수동 실행 버튼으로 즉시 조정할 수도 있습니다.
                     </p>
                   </div>
                 </div>
