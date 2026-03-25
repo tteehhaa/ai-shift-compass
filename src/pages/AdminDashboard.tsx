@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp, Trash2 } from "lucide-react";
+import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp, Trash2, Star, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import CountUp from "@/components/CountUp";
 
@@ -27,13 +27,31 @@ interface SharedResult {
   created_at: string;
 }
 
+interface FeedbackItem {
+  id: string;
+  diagnosis_id: string | null;
+  accuracy_score: number;
+  comment: string | null;
+  created_at: string;
+}
+
+interface DiagnosisItem {
+  id: string;
+  email: string | null;
+  mbti: string;
+  shift_index: number;
+  created_at: string;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [rankings, setRankings] = useState<RankingItem[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [sharedResults, setSharedResults] = useState<SharedResult[]>([]);
-  const [activeTab, setActiveTab] = useState<"overview" | "rankings" | "subscribers" | "shares">("overview");
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"overview" | "rankings" | "subscribers" | "shares" | "feedback" | "optimization">("overview");
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -59,16 +77,19 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Load all data in parallel
-    const [rankingsRes, subscribersRes, sharesRes] = await Promise.all([
+    const [rankingsRes, subscribersRes, sharesRes, feedbackRes, diagnosisRes] = await Promise.all([
       supabase.from("activity_rankings").select("*").order("count", { ascending: false }),
       supabase.from("email_subscribers").select("*").order("created_at", { ascending: false }),
       supabase.from("shared_results").select("id, mbti, created_at").order("created_at", { ascending: false }),
+      supabase.from("accuracy_feedback" as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("diagnosis_results" as any).select("id, email, mbti, shift_index, created_at").order("created_at", { ascending: false }),
     ]);
 
     if (rankingsRes.data) setRankings(rankingsRes.data);
     if (subscribersRes.data) setSubscribers(subscribersRes.data);
     if (sharesRes.data) setSharedResults(sharesRes.data);
+    if (feedbackRes.data) setFeedbacks(feedbackRes.data as any[]);
+    if (diagnosisRes.data) setDiagnoses(diagnosisRes.data as any[]);
     setLoading(false);
   };
 
@@ -101,6 +122,14 @@ export default function AdminDashboard() {
     toast.success("삭제되었습니다");
   };
 
+  const handleDeleteFeedback = async (id: string) => {
+    if (!confirm("이 피드백을 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("accuracy_feedback" as any).delete().eq("id", id);
+    if (error) { toast.error("삭제 실패"); return; }
+    setFeedbacks((prev) => prev.filter((f) => f.id !== id));
+    toast.success("삭제되었습니다");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -114,6 +143,8 @@ export default function AdminDashboard() {
     { key: "rankings" as const, label: "업무 랭킹", icon: Trophy },
     { key: "subscribers" as const, label: "구독자", icon: Users },
     { key: "shares" as const, label: "공유 결과", icon: Share2 },
+    { key: "feedback" as const, label: "피드백", icon: Star },
+    { key: "optimization" as const, label: "가중치 최적화", icon: Settings2 },
   ];
 
   // Stats
@@ -123,6 +154,15 @@ export default function AdminDashboard() {
   const avgShiftIndex = subscribers.length
     ? Math.round(subscribers.filter(s => s.shift_index).reduce((s, sub) => s + (sub.shift_index || 0), 0) / subscribers.filter(s => s.shift_index).length)
     : 0;
+
+  // Feedback stats
+  const avgFeedbackScore = feedbacks.length
+    ? (feedbacks.reduce((s, f) => s + f.accuracy_score, 0) / feedbacks.length).toFixed(1)
+    : "N/A";
+  const feedbackDistribution = [1, 2, 3, 4, 5].map(score => ({
+    score,
+    count: feedbacks.filter(f => f.accuracy_score === score).length,
+  }));
 
   // MBTI distribution
   const mbtiCounts: Record<string, number> = {};
@@ -134,6 +174,83 @@ export default function AdminDashboard() {
   const topMBTIs = Object.entries(mbtiCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
+
+  // Weight optimization analysis
+  const computeOptimizationInsights = () => {
+    if (feedbacks.length < 5) return null;
+
+    // Group feedback by score ranges
+    const lowScoreFeedbacks = feedbacks.filter(f => f.accuracy_score <= 2);
+    const highScoreFeedbacks = feedbacks.filter(f => f.accuracy_score >= 4);
+    const totalFeedbacks = feedbacks.length;
+
+    // Satisfaction rate
+    const satisfactionRate = Math.round((highScoreFeedbacks.length / totalFeedbacks) * 100);
+
+    // Trend: compare recent vs older
+    const sorted = [...feedbacks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const recentHalf = sorted.slice(0, Math.ceil(sorted.length / 2));
+    const olderHalf = sorted.slice(Math.ceil(sorted.length / 2));
+    const recentAvg = recentHalf.reduce((s, f) => s + f.accuracy_score, 0) / recentHalf.length;
+    const olderAvg = olderHalf.length ? olderHalf.reduce((s, f) => s + f.accuracy_score, 0) / olderHalf.length : recentAvg;
+    const trend = recentAvg - olderAvg;
+
+    // Current weights for reference
+    const currentWeights = {
+      '📧 단순 행정': 85,
+      '📚 자기계발': 70,
+      '💻 전문 업무': 55,
+      '📱 소셜 미디어': 92,
+      '🎬 미디어 감상': 88,
+      '🏃 운동/활동': 5,
+      '🤝 대면 소통': 5,
+      '🛌 휴식/수면': 5,
+      '🚗 운전': 5,
+      '🥗 식사/요리': 10,
+      '🧹 집안일/쇼핑': 10,
+      '➕ 기타': 10,
+    };
+
+    // Suggestions based on satisfaction
+    const suggestions: string[] = [];
+    if (satisfactionRate < 50) {
+      suggestions.push("만족도가 낮습니다. 전반적인 대체 점수(replacement_score) 가중치를 5~10% 하향 조정하는 것을 권장합니다.");
+      suggestions.push("특히 '전문 업무' 카테고리의 점수를 55% → 45%로 낮추면 체감 정확도가 올라갈 수 있습니다.");
+    } else if (satisfactionRate < 70) {
+      suggestions.push("보통 수준의 만족도입니다. '디지털 소비' 카테고리의 도파민 잠식 가중치(1.2배)를 1.1배로 완화하면 더 현실적인 결과를 제공할 수 있습니다.");
+    } else {
+      suggestions.push("높은 만족도를 유지하고 있습니다. 현재 가중치를 유지하세요.");
+    }
+
+    if (lowScoreFeedbacks.length > 0) {
+      const recentComments = lowScoreFeedbacks
+        .filter(f => f.comment)
+        .slice(0, 3)
+        .map(f => f.comment);
+      if (recentComments.length > 0) {
+        suggestions.push(`낮은 점수 피드백의 주요 의견: "${recentComments.join('", "')}"`);
+      }
+    }
+
+    if (trend > 0.3) {
+      suggestions.push("📈 최근 피드백 점수가 상승 추세입니다. 현재 방향이 올바릅니다.");
+    } else if (trend < -0.3) {
+      suggestions.push("📉 최근 피드백 점수가 하락 추세입니다. 가중치 재검토가 필요합니다.");
+    }
+
+    return {
+      satisfactionRate,
+      recentAvg: recentAvg.toFixed(1),
+      olderAvg: olderAvg.toFixed(1),
+      trend: trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2),
+      currentWeights,
+      suggestions,
+      lowCount: lowScoreFeedbacks.length,
+      highCount: highScoreFeedbacks.length,
+    };
+  };
+
+  const optimizationData = computeOptimizationInsights();
 
   return (
     <div className="min-h-screen bg-background">
@@ -176,7 +293,6 @@ export default function AdminDashboard() {
         {/* Overview Tab */}
         {activeTab === "overview" && (
           <div className="space-y-6">
-            {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: "이메일 구독자", value: totalSubscribers, icon: Users, color: "text-blue-500" },
@@ -194,7 +310,20 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Top MBTIs */}
+            {/* Feedback summary in overview */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <Star className="w-5 h-5 mx-auto mb-2 text-amber-500" />
+                <p className="text-2xl font-bold text-foreground">{avgFeedbackScore}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">평균 정확도 점수</p>
+              </div>
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <Star className="w-5 h-5 mx-auto mb-2 text-amber-500" />
+                <p className="text-2xl font-bold text-foreground">{feedbacks.length}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">총 피드백 수</p>
+              </div>
+            </div>
+
             {topMBTIs.length > 0 && (
               <div className="glass-card rounded-2xl p-6">
                 <h3 className="text-sm font-semibold text-foreground mb-4">MBTI 분포 TOP 5</h3>
@@ -218,7 +347,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Top 5 Rankings Preview */}
             <div className="glass-card rounded-2xl p-6">
               <h3 className="text-sm font-semibold text-foreground mb-4">AI 대체 업무 TOP 5</h3>
               <div className="space-y-2">
@@ -327,6 +455,167 @@ export default function AdminDashboard() {
               ))}
               {sharedResults.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">아직 공유된 결과가 없습니다.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Tab */}
+        {activeTab === "feedback" && (
+          <div className="space-y-6">
+            {/* Feedback Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <p className="text-2xl font-bold text-foreground">{avgFeedbackScore}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">평균 점수</p>
+              </div>
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <p className="text-2xl font-bold text-foreground">{feedbacks.length}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">총 피드백</p>
+              </div>
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <p className="text-2xl font-bold text-foreground">{diagnoses.length}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">총 진단 수</p>
+              </div>
+            </div>
+
+            {/* Score Distribution */}
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-foreground mb-4">점수 분포</h3>
+              <div className="space-y-2">
+                {feedbackDistribution.map(({ score, count }) => {
+                  const maxCount = Math.max(...feedbackDistribution.map(d => d.count), 1);
+                  return (
+                    <div key={score} className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 w-16">
+                        {Array.from({ length: score }).map((_, i) => (
+                          <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        ))}
+                      </div>
+                      <div className="flex-1 h-5 bg-secondary/50 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-400/50 rounded-full transition-all"
+                          style={{ width: `${(count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Recent Feedbacks */}
+            <div className="glass-card rounded-2xl overflow-hidden">
+              <div className="p-5 border-b border-border/30">
+                <h3 className="text-sm font-semibold text-foreground">최근 피드백 ({feedbacks.length}건)</h3>
+              </div>
+              <div className="divide-y divide-border/30">
+                {feedbacks.slice(0, 50).map((fb) => (
+                  <div key={fb.id} className="flex items-center gap-4 px-5 py-3">
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {Array.from({ length: fb.accuracy_score }).map((_, i) => (
+                        <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {fb.comment ? (
+                        <p className="text-sm text-foreground truncate">{fb.comment}</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">코멘트 없음</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(fb.created_at).toLocaleString("ko-KR")}
+                      </p>
+                    </div>
+                    <button onClick={() => handleDeleteFeedback(fb.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+                {feedbacks.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-8">아직 피드백이 없습니다.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Optimization Tab */}
+        {activeTab === "optimization" && (
+          <div className="space-y-6">
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Settings2 className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-semibold text-foreground">가중치 최적화 분석</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                사용자 피드백 데이터를 기반으로 analysis-engine.ts의 가중치 조정을 제안합니다.
+              </p>
+
+              {!optimizationData ? (
+                <div className="p-6 rounded-2xl bg-secondary/50 text-center">
+                  <p className="text-sm text-muted-foreground">최소 5건의 피드백이 필요합니다.</p>
+                  <p className="text-xs text-muted-foreground mt-1">현재 {feedbacks.length}건</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate}%</p>
+                      <p className="text-[10px] text-muted-foreground">만족도</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-xl font-bold text-foreground">{optimizationData.recentAvg}</p>
+                      <p className="text-[10px] text-muted-foreground">최근 평균</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-xl font-bold text-foreground">{optimizationData.olderAvg}</p>
+                      <p className="text-[10px] text-muted-foreground">이전 평균</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className={`text-xl font-bold ${optimizationData.trend.startsWith('+') ? 'text-green-600' : optimizationData.trend.startsWith('-') ? 'text-red-500' : 'text-foreground'}`}>
+                        {optimizationData.trend}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">추이</p>
+                    </div>
+                  </div>
+
+                  {/* Current Weights */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3">현재 대체 점수 가중치</h4>
+                    <div className="space-y-1.5">
+                      {Object.entries(optimizationData.currentWeights).map(([tag, score]) => (
+                        <div key={tag} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/30">
+                          <span className="text-sm w-40 truncate">{tag}</span>
+                          <div className="flex-1 h-3 bg-secondary/50 rounded-full overflow-hidden">
+                            <div className="h-full bg-foreground/20 rounded-full" style={{ width: `${score}%` }} />
+                          </div>
+                          <span className="text-xs font-mono text-muted-foreground w-10 text-right">{score}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3">💡 조정 제안</h4>
+                    <div className="space-y-2">
+                      {optimizationData.suggestions.map((s, i) => (
+                        <div key={i} className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                          <p className="text-sm text-foreground leading-relaxed">{s}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                    <p className="text-xs text-foreground leading-relaxed">
+                      <strong>⚠️ 참고:</strong> 이 제안은 수집된 피드백 패턴에 기반한 분석입니다.
+                      실제 가중치 변경은 <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">src/lib/analysis-engine.ts</code>의
+                      <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">getReplacementScore()</code> 함수를 수동으로 수정해주세요.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </div>

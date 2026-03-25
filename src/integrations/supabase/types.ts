@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      accuracy_feedback: {
+        Row: {
+          accuracy_score: number
+          comment: string | null
+          created_at: string
+          diagnosis_id: string | null
+          id: string
+        }
+        Insert: {
+          accuracy_score: number
+          comment?: string | null
+          created_at?: string
+          diagnosis_id?: string | null
+          id?: string
+        }
+        Update: {
+          accuracy_score?: number
+          comment?: string | null
+          created_at?: string
+          diagnosis_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accuracy_feedback_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_rankings: {
         Row: {
           activity_name: string
@@ -44,6 +76,36 @@ export type Database = {
           replacement_level?: string
           replacement_score?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      diagnosis_results: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          mbti: string
+          result_data: Json
+          routines: Json
+          shift_index: number
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          mbti: string
+          result_data: Json
+          routines: Json
+          shift_index: number
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          mbti?: string
+          result_data?: Json
+          routines?: Json
+          shift_index?: number
         }
         Relationships: []
       }

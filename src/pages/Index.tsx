@@ -152,7 +152,7 @@ export default function Index() {
 
         {step === "result" && result && (
           <div className="space-y-8 pb-10">
-            <ResultDashboard result={result} mbti={mbti} onShowShare={() => setShowShare(true)} />
+            <ResultDashboard result={result} mbti={mbti} routines={routines} onShowShare={() => setShowShare(true)} />
 
             {/* ⭐️ 핵심 추가: 공유 방문자에게만 보이는 거대한 유입 배너 */}
             {isSharedView && (

@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo } from "react";
-import type { AnalysisResult, AnalyzedActivity } from "@/lib/types";
+import type { AnalysisResult, AnalyzedActivity, RoutineEntry } from "@/lib/types";
 import { Lock, Unlock, Loader2, Shield } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import CommunityRanking from "@/components/CommunityRanking";
+import AccuracyFeedback from "@/components/AccuracyFeedback";
 import {
   REPLACEMENT_COLORS,
   REPLACEMENT_LABELS,
@@ -23,6 +24,7 @@ const emailSchema = z.string().trim().email("올바른 이메일 주소를 입�
 interface ResultDashboardProps {
   result: AnalysisResult;
   mbti: string;
+  routines?: RoutineEntry[];
   onShowShare: () => void;
 }
 
@@ -79,13 +81,14 @@ const SOURCE_BADGES = [
   { label: "Dario Amodei", color: "hsl(250, 50%, 50%)" },
 ];
 
-export default function ResultDashboard({ result, mbti, onShowShare }: ResultDashboardProps) {
+export default function ResultDashboard({ result, mbti, routines, onShowShare }: ResultDashboardProps) {
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [paywallEmail, setPaywallEmail] = useState("");
   const [paywallAgreed, setPaywallAgreed] = useState(false);
+  const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
 
   // ── #2 카테고리 위험도 ──
   const categoryRisks = useMemo(() => computeCategoryRisks(result.activities), [result.activities]);
@@ -106,6 +109,25 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
     console.log("[Paywall] 잠금 해제 시도", { email: parsed.data, mbti, shiftIndex: result.shiftIndex, timestamp: new Date().toISOString() });
 
     try {
+      // Save diagnosis result to DB
+      const diagPayload = {
+        email: parsed.data,
+        mbti: mbti || "UNKNOWN",
+        shift_index: result.shiftIndex,
+        routines: JSON.parse(JSON.stringify(routines || [])),
+        result_data: JSON.parse(JSON.stringify(result)),
+      };
+      const { data: diagData, error: diagError } = await supabase
+        .from("diagnosis_results" as any)
+        .insert(diagPayload as any)
+        .select("id")
+        .single();
+
+      if (diagData && (diagData as any).id) {
+        setDiagnosisId((diagData as any).id);
+      }
+
+      // Save email subscriber
       const { error } = await supabase.from("email_subscribers").insert({
         email: parsed.data,
         mbti: mbti || null,
@@ -114,7 +136,6 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
 
       if (error) {
         if (error.code === "23505") {
-          // Duplicate email — instant unlock
           setIsUnlocked(true);
           console.log("[Paywall] 중복 이메일 — 즉시 해제");
           toast({ title: "다시 오신 것을 환영합니다! 🎉", description: "리포트가 즉시 해제되었습니다." });
@@ -636,6 +657,11 @@ export default function ResultDashboard({ result, mbti, onShowShare }: ResultDas
       {/* Community Ranking */}
       <div className="mt-8">
         <CommunityRanking activities={result.activities} />
+      </div>
+
+      {/* Accuracy Feedback */}
+      <div className="mt-8">
+        <AccuracyFeedback diagnosisId={diagnosisId} />
       </div>
 
       {/* Share CTA - bottom */}
