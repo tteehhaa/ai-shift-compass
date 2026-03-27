@@ -53,6 +53,8 @@ export default function AdminDashboard() {
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
   const [algorithmConfigs, setAlgorithmConfigs] = useState<{ config_key: string; config_value: number; updated_at: string; updated_by: string }[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizerResult, setOptimizerResult] = useState<any>(null);
+  const [adminMemo, setAdminMemo] = useState(() => localStorage.getItem("admin_weights_memo") || "");
   const [activeTab, setActiveTab] = useState<"overview" | "rankings" | "subscribers" | "shares" | "feedback" | "optimization">("overview");
 
   useEffect(() => {
