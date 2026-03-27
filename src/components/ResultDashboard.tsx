@@ -25,6 +25,7 @@ interface ResultDashboardProps {
   result: AnalysisResult;
   mbti: string;
   routines?: RoutineEntry[];
+  diagnosisId?: string | null;
   onShowShare: () => void;
 }
 
