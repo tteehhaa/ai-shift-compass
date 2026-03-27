@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can update diagnosis email" ON public.diagnosis_results FOR UPDATE TO public USING (true) WITH CHECK (true);
