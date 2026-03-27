@@ -19,7 +19,7 @@ const SAMPLE_ROUTINES: RoutineEntry[] = [
   { time: "17:00", activity: "유튜브 시청", duration: 1, tag: "🎬 미디어 감상" },
 ];
 
-type Step = "input" | "analyzing" | "emailGate" | "result";
+type Step = "input" | "analyzing" | "result";
 
 export default function Index() {
   const [step, setStep] = useState<Step>("input");
@@ -27,6 +27,7 @@ export default function Index() {
   const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showShare, setShowShare] = useState(false);
+  const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
 
   // ⭐️ 핵심 추가: 이 사람이 '공유 링크'를 타고 온 방문자인지 추적하는 상태
   const [isSharedView, setIsSharedView] = useState(false);
@@ -68,14 +69,19 @@ export default function Index() {
     setStep("result");
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    // ⭐️ 진단 결과를 DB에 비동기 저장
+    // ⭐️ 분석 즉시 익명 저장 — 이메일 없이 routines + result_data 즉시 Insert
     try {
-      await supabase.from("diagnosis_results").insert({
-        mbti: mbti,
+      const { data: diagData } = await supabase.from("diagnosis_results").insert({
+        mbti: mbti || "UNKNOWN",
         routines: routines as unknown as import("@/integrations/supabase/types").Json,
         result_data: res as unknown as import("@/integrations/supabase/types").Json,
         shift_index: res.shiftIndex,
-      });
+      }).select("id").single();
+
+      if (diagData?.id) {
+        setDiagnosisId(diagData.id);
+        console.log("[Anonymous Save] diagnosis_id:", diagData.id);
+      }
     } catch (dbError) {
       console.error("결과 저장 실패:", dbError);
     }
@@ -85,7 +91,8 @@ export default function Index() {
     setStep("input");
     setResult(null);
     setShowShare(false);
-    setIsSharedView(false); // 다시 시작할 때는 공유 상태 해제
+    setIsSharedView(false);
+    setDiagnosisId(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -167,7 +174,7 @@ export default function Index() {
 
         {step === "result" && result && (
           <div className="space-y-8 pb-10">
-            <ResultDashboard result={result} mbti={mbti} routines={routines} onShowShare={() => setShowShare(true)} />
+            <ResultDashboard result={result} mbti={mbti} routines={routines} diagnosisId={diagnosisId} onShowShare={() => setShowShare(true)} />
 
             {/* ⭐️ 핵심 추가: 공유 방문자에게만 보이는 거대한 유입 배너 */}
             {isSharedView && (
