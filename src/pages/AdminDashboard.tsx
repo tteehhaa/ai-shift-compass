@@ -106,8 +106,8 @@ export default function AdminDashboard() {
         body: { trigger: "manual" },
       });
       if (error) throw error;
+      setOptimizerResult(data);
       toast.success(`최적화 완료: ${data.adjustmentsApplied || 0}건 조정`);
-      // Refresh config
       const { data: newConfig } = await supabase.from("algorithm_config" as any).select("config_key, config_value, updated_at, updated_by").order("config_key");
       if (newConfig) setAlgorithmConfigs(newConfig as any[]);
     } catch (e) {
@@ -116,6 +116,11 @@ export default function AdminDashboard() {
     } finally {
       setIsOptimizing(false);
     }
+  };
+
+  const handleSaveMemo = (value: string) => {
+    setAdminMemo(value);
+    localStorage.setItem("admin_weights_memo", value);
   };
 
   const handleLogout = async () => {
@@ -200,78 +205,84 @@ export default function AdminDashboard() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Weight optimization analysis
+  // Weight optimization analysis — now works without feedback too
   const computeOptimizationInsights = () => {
-    if (feedbacks.length < 5) return null;
+    const hasFeedback = feedbacks.length >= 1;
+    const hasDiagnoses = diagnoses.length >= 1;
 
-    // Group feedback by score ranges
+    if (!hasFeedback && !hasDiagnoses) return null;
+
     const lowScoreFeedbacks = feedbacks.filter(f => f.accuracy_score <= 2);
     const highScoreFeedbacks = feedbacks.filter(f => f.accuracy_score >= 4);
     const totalFeedbacks = feedbacks.length;
 
-    // Satisfaction rate
-    const satisfactionRate = Math.round((highScoreFeedbacks.length / totalFeedbacks) * 100);
+    const satisfactionRate = totalFeedbacks > 0
+      ? Math.round((highScoreFeedbacks.length / totalFeedbacks) * 100)
+      : null;
 
-    // Trend: compare recent vs older
-    const sorted = [...feedbacks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    const recentHalf = sorted.slice(0, Math.ceil(sorted.length / 2));
-    const olderHalf = sorted.slice(Math.ceil(sorted.length / 2));
-    const recentAvg = recentHalf.reduce((s, f) => s + f.accuracy_score, 0) / recentHalf.length;
-    const olderAvg = olderHalf.length ? olderHalf.reduce((s, f) => s + f.accuracy_score, 0) / olderHalf.length : recentAvg;
-    const trend = recentAvg - olderAvg;
+    // Trend
+    let recentAvg = 0, olderAvg = 0, trend = 0;
+    if (totalFeedbacks > 0) {
+      const sorted = [...feedbacks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const recentHalf = sorted.slice(0, Math.ceil(sorted.length / 2));
+      const olderHalf = sorted.slice(Math.ceil(sorted.length / 2));
+      recentAvg = recentHalf.reduce((s, f) => s + f.accuracy_score, 0) / recentHalf.length;
+      olderAvg = olderHalf.length ? olderHalf.reduce((s, f) => s + f.accuracy_score, 0) / olderHalf.length : recentAvg;
+      trend = recentAvg - olderAvg;
+    }
 
-    // Current weights for reference
-    const currentWeights = {
-      '📧 단순 행정': 85,
-      '📚 자기계발': 70,
-      '💻 전문 업무': 55,
-      '📱 소셜 미디어': 92,
-      '🎬 미디어 감상': 88,
-      '🏃 운동/활동': 5,
-      '🤝 대면 소통': 5,
-      '🛌 휴식/수면': 5,
-      '🚗 운전': 5,
-      '🥗 식사/요리': 10,
-      '🧹 집안일/쇼핑': 10,
-      '➕ 기타': 10,
-    };
+    // Diagnosis stats
+    const diagnosisAvgShift = diagnoses.length > 0
+      ? Math.round(diagnoses.reduce((s, d) => s + d.shift_index, 0) / diagnoses.length)
+      : 0;
+    const withEmail = diagnoses.filter(d => d.email).length;
+    const withoutEmail = diagnoses.length - withEmail;
 
-    // Suggestions based on satisfaction
     const suggestions: string[] = [];
-    if (satisfactionRate < 50) {
-      suggestions.push("만족도가 낮습니다. 전반적인 대체 점수(replacement_score) 가중치를 5~10% 하향 조정하는 것을 권장합니다.");
-      suggestions.push("특히 '전문 업무' 카테고리의 점수를 55% → 45%로 낮추면 체감 정확도가 올라갈 수 있습니다.");
-    } else if (satisfactionRate < 70) {
-      suggestions.push("보통 수준의 만족도입니다. '디지털 소비' 카테고리의 도파민 잠식 가중치(1.2배)를 1.1배로 완화하면 더 현실적인 결과를 제공할 수 있습니다.");
-    } else {
-      suggestions.push("높은 만족도를 유지하고 있습니다. 현재 가중치를 유지하세요.");
-    }
 
-    if (lowScoreFeedbacks.length > 0) {
-      const recentComments = lowScoreFeedbacks
-        .filter(f => f.comment)
-        .slice(0, 3)
-        .map(f => f.comment);
-      if (recentComments.length > 0) {
-        suggestions.push(`낮은 점수 피드백의 주요 의견: "${recentComments.join('", "')}"`);
+    // Feedback-based suggestions
+    if (totalFeedbacks > 0) {
+      if (satisfactionRate !== null && satisfactionRate < 50) {
+        suggestions.push("⚠️ 만족도 50% 미만. 전문 업무 대체 점수를 5~10% 하향 조정 권장.");
+      } else if (satisfactionRate !== null && satisfactionRate < 70) {
+        suggestions.push("📊 보통 만족도. 도파민 가중치(1.2→1.1) 완화를 검토하세요.");
+      } else if (satisfactionRate !== null) {
+        suggestions.push("✅ 높은 만족도. 현재 가중치 유지 권장.");
       }
+
+      if (lowScoreFeedbacks.length > 0) {
+        const comments = lowScoreFeedbacks.filter(f => f.comment).slice(0, 3).map(f => f.comment);
+        if (comments.length > 0) suggestions.push(`💬 낮은 점수 의견: "${comments.join('", "')}"`);
+      }
+
+      if (trend > 0.3) suggestions.push("📈 최근 점수 상승 추세. 올바른 방향.");
+      else if (trend < -0.3) suggestions.push("📉 최근 점수 하락 추세. 가중치 재검토 필요.");
     }
 
-    if (trend > 0.3) {
-      suggestions.push("📈 최근 피드백 점수가 상승 추세입니다. 현재 방향이 올바릅니다.");
-    } else if (trend < -0.3) {
-      suggestions.push("📉 최근 피드백 점수가 하락 추세입니다. 가중치 재검토가 필요합니다.");
+    // Data-based suggestions (피드백 없어도 동작)
+    if (diagnoses.length > 0) {
+      suggestions.push(`📋 총 ${diagnoses.length}건 진단 데이터 (이메일 O: ${withEmail}, 익명: ${withoutEmail})`);
+      suggestions.push(`📊 평균 시프트 지수: ${diagnosisAvgShift}%`);
+
+      if (diagnosisAvgShift > 70) {
+        suggestions.push("🔥 시프트 지수가 높음. 사용자들의 업무가 AI 대체 가능성이 높은 구조입니다.");
+      } else if (diagnosisAvgShift < 30 && diagnosisAvgShift > 0) {
+        suggestions.push("🛡️ 시프트 지수가 낮음. 전문 업무 가중치를 하향하면 체감 정확도가 올라갈 수 있습니다.");
+      }
     }
 
     return {
       satisfactionRate,
-      recentAvg: recentAvg.toFixed(1),
-      olderAvg: olderAvg.toFixed(1),
-      trend: trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2),
-      currentWeights,
+      recentAvg: totalFeedbacks > 0 ? recentAvg.toFixed(1) : "N/A",
+      olderAvg: totalFeedbacks > 0 ? olderAvg.toFixed(1) : "N/A",
+      trend: totalFeedbacks > 0 ? (trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2)) : "N/A",
       suggestions,
       lowCount: lowScoreFeedbacks.length,
       highCount: highScoreFeedbacks.length,
+      totalDiagnoses: diagnoses.length,
+      diagnosisAvgShift,
+      withEmail,
+      withoutEmail,
     };
   };
 
