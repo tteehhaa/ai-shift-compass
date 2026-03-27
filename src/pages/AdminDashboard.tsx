@@ -593,8 +593,20 @@ export default function AdminDashboard() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mb-4">
-                매일 03:00 KST에 자동 실행됩니다. 사용자 피드백 기반으로 가중치를 0.01 단위로 자동 조정합니다.
+                피드백 + 진단 데이터 통계를 모두 분석합니다. 데이터 1건부터 즉시 반영됩니다.
               </p>
+
+              {/* Admin Memo */}
+              <div className="mb-6 p-4 rounded-xl bg-secondary/30 border border-border/30">
+                <h4 className="text-xs font-semibold text-foreground mb-2">📝 관리자 메모</h4>
+                <textarea
+                  value={adminMemo}
+                  onChange={(e) => handleSaveMemo(e.target.value)}
+                  placeholder="가중치 조정 근거, 관찰 내용, 다음 액션 등을 메모하세요..."
+                  className="w-full h-24 text-xs bg-background/50 border border-border/30 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">로컬 저장 (브라우저에만 보관)</p>
+              </div>
 
               {/* Live Config from DB */}
               {algorithmConfigs.length > 0 && (
@@ -625,31 +637,89 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {/* Optimizer Last Run Result */}
+              {optimizerResult && (
+                <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
+                  <h4 className="text-xs font-semibold text-foreground mb-2">🔄 마지막 실행 결과</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.totalDiagnoses || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">진단 데이터</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.totalFeedbacks || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">피드백</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.avgShiftIndex || 0}%</p>
+                      <p className="text-[10px] text-muted-foreground">평균 시프트</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.adjustmentsApplied || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">조정 적용</p>
+                    </div>
+                  </div>
+                  {optimizerResult.adjustments?.length > 0 && (
+                    <div className="space-y-1">
+                      {optimizerResult.adjustments.map((adj: any, i: number) => (
+                        <div key={i} className="text-xs text-foreground flex items-center gap-2">
+                          <span className="font-mono">{adj.key}</span>
+                          <span className="text-muted-foreground">{adj.oldValue} → {adj.newValue}</span>
+                          <span className="text-[10px] text-muted-foreground">({adj.reason})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {optimizerResult.dataInsights?.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-foreground mb-1">📈 카테고리 인사이트</p>
+                      {optimizerResult.dataInsights.map((ins: any, i: number) => (
+                        <div key={i} className="text-xs text-muted-foreground flex gap-2">
+                          <span className="font-medium text-foreground">{ins.category}</span>
+                          <span>{ins.frequency}회 · 평균 {ins.avgMinutes}분</span>
+                          <span className="text-[10px]">— {ins.suggestion}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!optimizationData ? (
                 <div className="p-6 rounded-2xl bg-secondary/50 text-center">
-                  <p className="text-sm text-muted-foreground">최소 5건의 피드백이 필요합니다.</p>
-                  <p className="text-xs text-muted-foreground mt-1">현재 {feedbacks.length}건</p>
+                  <p className="text-sm text-muted-foreground">아직 데이터가 없습니다. 진단을 1회 이상 실행하면 분석이 시작됩니다.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate}%</p>
-                      <p className="text-[10px] text-muted-foreground">만족도</p>
+                      <p className="text-xl font-bold text-foreground">{optimizationData.totalDiagnoses}</p>
+                      <p className="text-[10px] text-muted-foreground">총 진단 수</p>
                     </div>
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.recentAvg}</p>
-                      <p className="text-[10px] text-muted-foreground">최근 평균</p>
+                      <p className="text-xl font-bold text-foreground">{optimizationData.diagnosisAvgShift}%</p>
+                      <p className="text-[10px] text-muted-foreground">평균 시프트</p>
                     </div>
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.olderAvg}</p>
-                      <p className="text-[10px] text-muted-foreground">이전 평균</p>
+                      <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate !== null ? `${optimizationData.satisfactionRate}%` : "—"}</p>
+                      <p className="text-[10px] text-muted-foreground">피드백 만족도</p>
                     </div>
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className={`text-xl font-bold ${optimizationData.trend.startsWith('+') ? 'text-green-600' : optimizationData.trend.startsWith('-') ? 'text-red-500' : 'text-foreground'}`}>
+                      <p className={`text-xl font-bold ${optimizationData.trend !== "N/A" && optimizationData.trend.startsWith('+') ? 'text-green-600' : optimizationData.trend !== "N/A" && optimizationData.trend.startsWith('-') ? 'text-red-500' : 'text-foreground'}`}>
                         {optimizationData.trend}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">추이</p>
+                      <p className="text-[10px] text-muted-foreground">피드백 추이</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizationData.withEmail}</p>
+                      <p className="text-[10px] text-muted-foreground">이메일 등록</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizationData.withoutEmail}</p>
+                      <p className="text-[10px] text-muted-foreground">익명 데이터</p>
                     </div>
                   </div>
 
@@ -657,17 +727,17 @@ export default function AdminDashboard() {
                     <h4 className="text-sm font-semibold text-foreground mb-3">💡 조정 제안</h4>
                     <div className="space-y-2">
                       {optimizationData.suggestions.map((s, i) => (
-                        <div key={i} className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <div key={i} className="p-4 rounded-xl bg-secondary/30 border border-border/30">
                           <p className="text-sm text-foreground leading-relaxed">{s}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                  <div className="p-4 rounded-xl bg-secondary/30 border border-border/30">
                     <p className="text-xs text-foreground leading-relaxed">
-                      <strong>⚠️ 자가 진화 모드:</strong> 가중치는 <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">algorithm_config</code> 테이블에서
-                      실시간 로드되며, 매일 자동 최적화됩니다. 수동 실행 버튼으로 즉시 조정할 수도 있습니다.
+                      <strong>⚡ 자가 진화 모드:</strong> 피드백이 없어도 진단 데이터 통계(카테고리 빈도, 시프트 지수 분포)로 가중치를 제안합니다.
+                      수동 실행 시 Edge Function이 DB 데이터를 분석해 0.01 단위로 자동 조정합니다.
                     </p>
                   </div>
                 </div>
