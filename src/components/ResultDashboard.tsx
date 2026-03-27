@@ -91,6 +91,11 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
   const [paywallAgreed, setPaywallAgreed] = useState(false);
   const [diagnosisId, setDiagnosisId] = useState<string | null>(externalDiagnosisId || null);
 
+  // Sync when externalDiagnosisId arrives asynchronously
+  useEffect(() => {
+    if (externalDiagnosisId) setDiagnosisId(externalDiagnosisId);
+  }, [externalDiagnosisId]);
+
   // ── #2 카테고리 위험도 ──
   const categoryRisks = useMemo(() => computeCategoryRisks(result.activities), [result.activities]);
   const topRiskCategory = categoryRisks[0];
