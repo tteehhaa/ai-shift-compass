@@ -107,30 +107,22 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
       return;
     }
 
-    console.log("[Paywall] 잠금 해제 시도", { email: parsed.data, mbti, shiftIndex: result.shiftIndex, timestamp: new Date().toISOString() });
+    const parsedEmail = parsed.data;
+    console.log("[Paywall] 잠금 해제 시도", { email: parsedEmail, diagnosisId });
 
     try {
-      // Save diagnosis result to DB
-      const diagPayload = {
-        email: parsed.data,
-        mbti: mbti || "UNKNOWN",
-        shift_index: result.shiftIndex,
-        routines: JSON.parse(JSON.stringify(routines || [])),
-        result_data: JSON.parse(JSON.stringify(result)),
-      };
-      const { data: diagData, error: diagError } = await supabase
-        .from("diagnosis_results" as any)
-        .insert(diagPayload as any)
-        .select("id")
-        .single();
-
-      if (diagData && (diagData as any).id) {
-        setDiagnosisId((diagData as any).id);
+      // ⭐️ 기존 diagnosis_results 레코드의 email 컬럼을 UPDATE
+      if (diagnosisId) {
+        await supabase
+          .from("diagnosis_results")
+          .update({ email: parsedEmail } as any)
+          .eq("id", diagnosisId);
+        console.log("[Paywall] diagnosis email updated:", diagnosisId);
       }
 
-      // Save email subscriber
+      // email_subscribers에 저장
       const { error } = await supabase.from("email_subscribers").insert({
-        email: parsed.data,
+        email: parsedEmail,
         mbti: mbti || null,
         shift_index: result.shiftIndex,
       });
@@ -156,7 +148,7 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
       setIsUnlocking(false);
       toast({ title: "잠시 후 다시 시도해주세요.", variant: "destructive" });
     }
-  }, [paywallEmail, paywallAgreed, mbti, result.shiftIndex]);
+  }, [paywallEmail, paywallAgreed, mbti, result.shiftIndex, diagnosisId]);
 
   const levelDurations: Record<string, number> = {
     critical: 0, high: 0, medium: 0, low: 0, assist: 0, human: 0,
