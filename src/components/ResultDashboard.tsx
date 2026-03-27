@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { AnalysisResult, AnalyzedActivity, RoutineEntry } from "@/lib/types";
 import { Lock, Unlock, Loader2, Shield } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
