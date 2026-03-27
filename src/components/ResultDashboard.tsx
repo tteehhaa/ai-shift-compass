@@ -82,14 +82,14 @@ const SOURCE_BADGES = [
   { label: "Dario Amodei", color: "hsl(250, 50%, 50%)" },
 ];
 
-export default function ResultDashboard({ result, mbti, routines, onShowShare }: ResultDashboardProps) {
+export default function ResultDashboard({ result, mbti, routines, diagnosisId: externalDiagnosisId, onShowShare }: ResultDashboardProps) {
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [paywallEmail, setPaywallEmail] = useState("");
   const [paywallAgreed, setPaywallAgreed] = useState(false);
-  const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
+  const [diagnosisId, setDiagnosisId] = useState<string | null>(externalDiagnosisId || null);
 
   // ── #2 카테고리 위험도 ──
   const categoryRisks = useMemo(() => computeCategoryRisks(result.activities), [result.activities]);
