@@ -33,7 +33,7 @@ serve(async (req) => {
     const totalCount = allFeedbacks?.length || 0;
     const lowCount = lowFeedbacks?.length || 0;
 
-    if (totalCount < 5) {
+    if (totalCount < 1) {
       return new Response(JSON.stringify({
         status: "skipped",
         reason: "최근 7일간 피드백 5건 미만 — 조정 불필요",
