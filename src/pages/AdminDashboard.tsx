@@ -53,6 +53,8 @@ export default function AdminDashboard() {
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
   const [algorithmConfigs, setAlgorithmConfigs] = useState<{ config_key: string; config_value: number; updated_at: string; updated_by: string }[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizerResult, setOptimizerResult] = useState<any>(null);
+  const [adminMemo, setAdminMemo] = useState(() => localStorage.getItem("admin_weights_memo") || "");
   const [activeTab, setActiveTab] = useState<"overview" | "rankings" | "subscribers" | "shares" | "feedback" | "optimization">("overview");
 
   useEffect(() => {
@@ -104,8 +106,8 @@ export default function AdminDashboard() {
         body: { trigger: "manual" },
       });
       if (error) throw error;
+      setOptimizerResult(data);
       toast.success(`최적화 완료: ${data.adjustmentsApplied || 0}건 조정`);
-      // Refresh config
       const { data: newConfig } = await supabase.from("algorithm_config" as any).select("config_key, config_value, updated_at, updated_by").order("config_key");
       if (newConfig) setAlgorithmConfigs(newConfig as any[]);
     } catch (e) {
@@ -114,6 +116,11 @@ export default function AdminDashboard() {
     } finally {
       setIsOptimizing(false);
     }
+  };
+
+  const handleSaveMemo = (value: string) => {
+    setAdminMemo(value);
+    localStorage.setItem("admin_weights_memo", value);
   };
 
   const handleLogout = async () => {
@@ -198,78 +205,84 @@ export default function AdminDashboard() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Weight optimization analysis
+  // Weight optimization analysis — now works without feedback too
   const computeOptimizationInsights = () => {
-    if (feedbacks.length < 5) return null;
+    const hasFeedback = feedbacks.length >= 1;
+    const hasDiagnoses = diagnoses.length >= 1;
 
-    // Group feedback by score ranges
+    if (!hasFeedback && !hasDiagnoses) return null;
+
     const lowScoreFeedbacks = feedbacks.filter(f => f.accuracy_score <= 2);
     const highScoreFeedbacks = feedbacks.filter(f => f.accuracy_score >= 4);
     const totalFeedbacks = feedbacks.length;
 
-    // Satisfaction rate
-    const satisfactionRate = Math.round((highScoreFeedbacks.length / totalFeedbacks) * 100);
+    const satisfactionRate = totalFeedbacks > 0
+      ? Math.round((highScoreFeedbacks.length / totalFeedbacks) * 100)
+      : null;
 
-    // Trend: compare recent vs older
-    const sorted = [...feedbacks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    const recentHalf = sorted.slice(0, Math.ceil(sorted.length / 2));
-    const olderHalf = sorted.slice(Math.ceil(sorted.length / 2));
-    const recentAvg = recentHalf.reduce((s, f) => s + f.accuracy_score, 0) / recentHalf.length;
-    const olderAvg = olderHalf.length ? olderHalf.reduce((s, f) => s + f.accuracy_score, 0) / olderHalf.length : recentAvg;
-    const trend = recentAvg - olderAvg;
+    // Trend
+    let recentAvg = 0, olderAvg = 0, trend = 0;
+    if (totalFeedbacks > 0) {
+      const sorted = [...feedbacks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const recentHalf = sorted.slice(0, Math.ceil(sorted.length / 2));
+      const olderHalf = sorted.slice(Math.ceil(sorted.length / 2));
+      recentAvg = recentHalf.reduce((s, f) => s + f.accuracy_score, 0) / recentHalf.length;
+      olderAvg = olderHalf.length ? olderHalf.reduce((s, f) => s + f.accuracy_score, 0) / olderHalf.length : recentAvg;
+      trend = recentAvg - olderAvg;
+    }
 
-    // Current weights for reference
-    const currentWeights = {
-      '📧 단순 행정': 85,
-      '📚 자기계발': 70,
-      '💻 전문 업무': 55,
-      '📱 소셜 미디어': 92,
-      '🎬 미디어 감상': 88,
-      '🏃 운동/활동': 5,
-      '🤝 대면 소통': 5,
-      '🛌 휴식/수면': 5,
-      '🚗 운전': 5,
-      '🥗 식사/요리': 10,
-      '🧹 집안일/쇼핑': 10,
-      '➕ 기타': 10,
-    };
+    // Diagnosis stats
+    const diagnosisAvgShift = diagnoses.length > 0
+      ? Math.round(diagnoses.reduce((s, d) => s + d.shift_index, 0) / diagnoses.length)
+      : 0;
+    const withEmail = diagnoses.filter(d => d.email).length;
+    const withoutEmail = diagnoses.length - withEmail;
 
-    // Suggestions based on satisfaction
     const suggestions: string[] = [];
-    if (satisfactionRate < 50) {
-      suggestions.push("만족도가 낮습니다. 전반적인 대체 점수(replacement_score) 가중치를 5~10% 하향 조정하는 것을 권장합니다.");
-      suggestions.push("특히 '전문 업무' 카테고리의 점수를 55% → 45%로 낮추면 체감 정확도가 올라갈 수 있습니다.");
-    } else if (satisfactionRate < 70) {
-      suggestions.push("보통 수준의 만족도입니다. '디지털 소비' 카테고리의 도파민 잠식 가중치(1.2배)를 1.1배로 완화하면 더 현실적인 결과를 제공할 수 있습니다.");
-    } else {
-      suggestions.push("높은 만족도를 유지하고 있습니다. 현재 가중치를 유지하세요.");
-    }
 
-    if (lowScoreFeedbacks.length > 0) {
-      const recentComments = lowScoreFeedbacks
-        .filter(f => f.comment)
-        .slice(0, 3)
-        .map(f => f.comment);
-      if (recentComments.length > 0) {
-        suggestions.push(`낮은 점수 피드백의 주요 의견: "${recentComments.join('", "')}"`);
+    // Feedback-based suggestions
+    if (totalFeedbacks > 0) {
+      if (satisfactionRate !== null && satisfactionRate < 50) {
+        suggestions.push("⚠️ 만족도 50% 미만. 전문 업무 대체 점수를 5~10% 하향 조정 권장.");
+      } else if (satisfactionRate !== null && satisfactionRate < 70) {
+        suggestions.push("📊 보통 만족도. 도파민 가중치(1.2→1.1) 완화를 검토하세요.");
+      } else if (satisfactionRate !== null) {
+        suggestions.push("✅ 높은 만족도. 현재 가중치 유지 권장.");
       }
+
+      if (lowScoreFeedbacks.length > 0) {
+        const comments = lowScoreFeedbacks.filter(f => f.comment).slice(0, 3).map(f => f.comment);
+        if (comments.length > 0) suggestions.push(`💬 낮은 점수 의견: "${comments.join('", "')}"`);
+      }
+
+      if (trend > 0.3) suggestions.push("📈 최근 점수 상승 추세. 올바른 방향.");
+      else if (trend < -0.3) suggestions.push("📉 최근 점수 하락 추세. 가중치 재검토 필요.");
     }
 
-    if (trend > 0.3) {
-      suggestions.push("📈 최근 피드백 점수가 상승 추세입니다. 현재 방향이 올바릅니다.");
-    } else if (trend < -0.3) {
-      suggestions.push("📉 최근 피드백 점수가 하락 추세입니다. 가중치 재검토가 필요합니다.");
+    // Data-based suggestions (피드백 없어도 동작)
+    if (diagnoses.length > 0) {
+      suggestions.push(`📋 총 ${diagnoses.length}건 진단 데이터 (이메일 O: ${withEmail}, 익명: ${withoutEmail})`);
+      suggestions.push(`📊 평균 시프트 지수: ${diagnosisAvgShift}%`);
+
+      if (diagnosisAvgShift > 70) {
+        suggestions.push("🔥 시프트 지수가 높음. 사용자들의 업무가 AI 대체 가능성이 높은 구조입니다.");
+      } else if (diagnosisAvgShift < 30 && diagnosisAvgShift > 0) {
+        suggestions.push("🛡️ 시프트 지수가 낮음. 전문 업무 가중치를 하향하면 체감 정확도가 올라갈 수 있습니다.");
+      }
     }
 
     return {
       satisfactionRate,
-      recentAvg: recentAvg.toFixed(1),
-      olderAvg: olderAvg.toFixed(1),
-      trend: trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2),
-      currentWeights,
+      recentAvg: totalFeedbacks > 0 ? recentAvg.toFixed(1) : "N/A",
+      olderAvg: totalFeedbacks > 0 ? olderAvg.toFixed(1) : "N/A",
+      trend: totalFeedbacks > 0 ? (trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2)) : "N/A",
       suggestions,
       lowCount: lowScoreFeedbacks.length,
       highCount: highScoreFeedbacks.length,
+      totalDiagnoses: diagnoses.length,
+      diagnosisAvgShift,
+      withEmail,
+      withoutEmail,
     };
   };
 
@@ -580,8 +593,20 @@ export default function AdminDashboard() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mb-4">
-                매일 03:00 KST에 자동 실행됩니다. 사용자 피드백 기반으로 가중치를 0.01 단위로 자동 조정합니다.
+                피드백 + 진단 데이터 통계를 모두 분석합니다. 데이터 1건부터 즉시 반영됩니다.
               </p>
+
+              {/* Admin Memo */}
+              <div className="mb-6 p-4 rounded-xl bg-secondary/30 border border-border/30">
+                <h4 className="text-xs font-semibold text-foreground mb-2">📝 관리자 메모</h4>
+                <textarea
+                  value={adminMemo}
+                  onChange={(e) => handleSaveMemo(e.target.value)}
+                  placeholder="가중치 조정 근거, 관찰 내용, 다음 액션 등을 메모하세요..."
+                  className="w-full h-24 text-xs bg-background/50 border border-border/30 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">로컬 저장 (브라우저에만 보관)</p>
+              </div>
 
               {/* Live Config from DB */}
               {algorithmConfigs.length > 0 && (
@@ -612,31 +637,89 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {/* Optimizer Last Run Result */}
+              {optimizerResult && (
+                <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
+                  <h4 className="text-xs font-semibold text-foreground mb-2">🔄 마지막 실행 결과</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.totalDiagnoses || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">진단 데이터</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.totalFeedbacks || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">피드백</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.avgShiftIndex || 0}%</p>
+                      <p className="text-[10px] text-muted-foreground">평균 시프트</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizerResult.adjustmentsApplied || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">조정 적용</p>
+                    </div>
+                  </div>
+                  {optimizerResult.adjustments?.length > 0 && (
+                    <div className="space-y-1">
+                      {optimizerResult.adjustments.map((adj: any, i: number) => (
+                        <div key={i} className="text-xs text-foreground flex items-center gap-2">
+                          <span className="font-mono">{adj.key}</span>
+                          <span className="text-muted-foreground">{adj.oldValue} → {adj.newValue}</span>
+                          <span className="text-[10px] text-muted-foreground">({adj.reason})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {optimizerResult.dataInsights?.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-foreground mb-1">📈 카테고리 인사이트</p>
+                      {optimizerResult.dataInsights.map((ins: any, i: number) => (
+                        <div key={i} className="text-xs text-muted-foreground flex gap-2">
+                          <span className="font-medium text-foreground">{ins.category}</span>
+                          <span>{ins.frequency}회 · 평균 {ins.avgMinutes}분</span>
+                          <span className="text-[10px]">— {ins.suggestion}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!optimizationData ? (
                 <div className="p-6 rounded-2xl bg-secondary/50 text-center">
-                  <p className="text-sm text-muted-foreground">최소 5건의 피드백이 필요합니다.</p>
-                  <p className="text-xs text-muted-foreground mt-1">현재 {feedbacks.length}건</p>
+                  <p className="text-sm text-muted-foreground">아직 데이터가 없습니다. 진단을 1회 이상 실행하면 분석이 시작됩니다.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate}%</p>
-                      <p className="text-[10px] text-muted-foreground">만족도</p>
+                      <p className="text-xl font-bold text-foreground">{optimizationData.totalDiagnoses}</p>
+                      <p className="text-[10px] text-muted-foreground">총 진단 수</p>
                     </div>
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.recentAvg}</p>
-                      <p className="text-[10px] text-muted-foreground">최근 평균</p>
+                      <p className="text-xl font-bold text-foreground">{optimizationData.diagnosisAvgShift}%</p>
+                      <p className="text-[10px] text-muted-foreground">평균 시프트</p>
                     </div>
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.olderAvg}</p>
-                      <p className="text-[10px] text-muted-foreground">이전 평균</p>
+                      <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate !== null ? `${optimizationData.satisfactionRate}%` : "—"}</p>
+                      <p className="text-[10px] text-muted-foreground">피드백 만족도</p>
                     </div>
                     <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className={`text-xl font-bold ${optimizationData.trend.startsWith('+') ? 'text-green-600' : optimizationData.trend.startsWith('-') ? 'text-red-500' : 'text-foreground'}`}>
+                      <p className={`text-xl font-bold ${optimizationData.trend !== "N/A" && optimizationData.trend.startsWith('+') ? 'text-green-600' : optimizationData.trend !== "N/A" && optimizationData.trend.startsWith('-') ? 'text-red-500' : 'text-foreground'}`}>
                         {optimizationData.trend}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">추이</p>
+                      <p className="text-[10px] text-muted-foreground">피드백 추이</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizationData.withEmail}</p>
+                      <p className="text-[10px] text-muted-foreground">이메일 등록</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                      <p className="text-lg font-bold text-foreground">{optimizationData.withoutEmail}</p>
+                      <p className="text-[10px] text-muted-foreground">익명 데이터</p>
                     </div>
                   </div>
 
@@ -644,17 +727,17 @@ export default function AdminDashboard() {
                     <h4 className="text-sm font-semibold text-foreground mb-3">💡 조정 제안</h4>
                     <div className="space-y-2">
                       {optimizationData.suggestions.map((s, i) => (
-                        <div key={i} className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <div key={i} className="p-4 rounded-xl bg-secondary/30 border border-border/30">
                           <p className="text-sm text-foreground leading-relaxed">{s}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                  <div className="p-4 rounded-xl bg-secondary/30 border border-border/30">
                     <p className="text-xs text-foreground leading-relaxed">
-                      <strong>⚠️ 자가 진화 모드:</strong> 가중치는 <code className="px-1 py-0.5 bg-secondary rounded text-[11px]">algorithm_config</code> 테이블에서
-                      실시간 로드되며, 매일 자동 최적화됩니다. 수동 실행 버튼으로 즉시 조정할 수도 있습니다.
+                      <strong>⚡ 자가 진화 모드:</strong> 피드백이 없어도 진단 데이터 통계(카테고리 빈도, 시프트 지수 분포)로 가중치를 제안합니다.
+                      수동 실행 시 Edge Function이 DB 데이터를 분석해 0.01 단위로 자동 조정합니다.
                     </p>
                   </div>
                 </div>
