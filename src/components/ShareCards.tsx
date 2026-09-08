@@ -138,7 +138,7 @@ function ShareCard({ result, mbti }: { result: AnalysisResult; mbti: string }) {
         </div>
       </div>
       <div className="text-center space-y-1">
-        <p className="text-xs font-semibold text-[#E85D22]">
+        <p className="text-xs font-semibold text-[var(--indigo)]">
           너도 해봐! 나의 AI 시프트 진단
         </p>
         <p className="text-[10px] text-muted-foreground/60">ai-shift-compass.lovable.app</p>

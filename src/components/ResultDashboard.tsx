@@ -72,9 +72,9 @@ function computeCategoryRisks(activities: AnalyzedActivity[]): CategoryRisk[] {
 
 // ── Source badges data ──
 const SOURCE_BADGES = [
-  { label: "Anthropic AEI", color: "hsl(210, 80%, 50%)" },
-  { label: "OECD", color: "hsl(200, 60%, 45%)" },
-  { label: "Dario Amodei", color: "hsl(250, 50%, 50%)" },
+  { label: "Anthropic AEI", color: "var(--indigo)" },
+  { label: "OECD", color: "var(--indigo-soft)" },
+  { label: "Dario Amodei", color: "var(--quiet)" },
 ];
 
 export default function ResultDashboard({ result, mbti, routines, diagnosisId: externalDiagnosisId, onShowShare }: ResultDashboardProps) {
@@ -356,7 +356,7 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
           )}
 
           {/* Insight Box */}
-          <div className="rounded-2xl p-4 bg-white/60 border border-blue-200/50 mt-4">
+          <div className="p-4 rule-top mt-4">
             <p className="text-sm text-foreground leading-relaxed">
               🚀 AI 도구를 활용해 하루{" "}
               <strong>{(result.timeReport.gainHr + result.timeReport.augmentHr).toFixed(1)}시간</strong>의 생산성을 확보하고 있습니다.
@@ -517,7 +517,7 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
       {/* Share CTA - bottom */}
       <button
         onClick={onShowShare}
-        className="w-full rounded-2xl border border-[#E85D22] text-[#E85D22] py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:bg-[#E85D22] hover:text-white active:scale-[0.97] mt-8"
+        className="w-full border border-indigo text-indigo py-4 font-medium text-sm flex items-center justify-center gap-2 transition-colors hover:bg-indigo hover:text-cream mt-8"
       >
         <Share2 className="w-4 h-4" />
         결과 공유하기

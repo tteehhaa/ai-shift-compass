@@ -92,19 +92,21 @@ export interface UserInput {
 }
 
 // Tag configuration
+// PRD 3.6 D7 — 색 블록(파스텔 배경 채우기)을 쓰지 않는다.
+// 색은 텍스트에만 남기고, 구분은 그룹별 명도 차이로 낸다.
 export const TAG_CONFIG: Record<TagCategory, { group: TagGroup; color: string; bgColor: string }> = {
-  '💻 전문 업무': { group: '생산성', color: '#3b82f6', bgColor: '#eff6ff' },
-  '📧 단순 행정': { group: '생산성', color: '#3b82f6', bgColor: '#eff6ff' },
-  '📚 자기계발': { group: '생산성', color: '#3b82f6', bgColor: '#eff6ff' },
-  '📱 소셜 미디어': { group: '디지털 소비', color: '#ef4444', bgColor: '#fef2f2' },
-  '🎬 미디어 감상': { group: '디지털 소비', color: '#ef4444', bgColor: '#fef2f2' },
-  '🏃 운동/활동': { group: '오프라인/에너지', color: '#22c55e', bgColor: '#f0fdf4' },
-  '🤝 대면 소통': { group: '오프라인/에너지', color: '#22c55e', bgColor: '#f0fdf4' },
-  '🛌 휴식/수면': { group: '오프라인/에너지', color: '#22c55e', bgColor: '#f0fdf4' },
-  '🚗 운전': { group: '오프라인/에너지', color: '#22c55e', bgColor: '#f0fdf4' },
-  '🥗 식사/요리': { group: '생활 루틴', color: '#6b7280', bgColor: '#f9fafb' },
-  '🧹 집안일/쇼핑': { group: '생활 루틴', color: '#6b7280', bgColor: '#f9fafb' },
-  '➕ 기타': { group: '생활 루틴', color: '#6b7280', bgColor: '#f9fafb' },
+  '💻 전문 업무': { group: '생산성', color: '#26215C', bgColor: 'transparent' },
+  '📧 단순 행정': { group: '생산성', color: '#26215C', bgColor: 'transparent' },
+  '📚 자기계발': { group: '생산성', color: '#26215C', bgColor: 'transparent' },
+  '📱 소셜 미디어': { group: '디지털 소비', color: '#534AB7', bgColor: 'transparent' },
+  '🎬 미디어 감상': { group: '디지털 소비', color: '#534AB7', bgColor: 'transparent' },
+  '🏃 운동/활동': { group: '오프라인/에너지', color: '#55524B', bgColor: 'transparent' },
+  '🤝 대면 소통': { group: '오프라인/에너지', color: '#55524B', bgColor: 'transparent' },
+  '🛌 휴식/수면': { group: '오프라인/에너지', color: '#55524B', bgColor: 'transparent' },
+  '🚗 운전': { group: '오프라인/에너지', color: '#55524B', bgColor: 'transparent' },
+  '🥗 식사/요리': { group: '생활 루틴', color: '#8A857A', bgColor: 'transparent' },
+  '🧹 집안일/쇼핑': { group: '생활 루틴', color: '#8A857A', bgColor: 'transparent' },
+  '➕ 기타': { group: '생활 루틴', color: '#8A857A', bgColor: 'transparent' },
 };
 
 export const TAG_GROUPS: Record<TagGroup, TagCategory[]> = {

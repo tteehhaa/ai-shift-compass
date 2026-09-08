@@ -242,13 +242,18 @@ export function analyzeRoutines(routines: RoutineEntry[], mbti: string, config?:
 }
 
 // 컬러 및 설명 데이터
+/**
+ * PRD 3.6 D4 — "당신만 할 수 있는 일"을 딥 인디고로, "맡겨도 되는 일"은 무채색으로.
+ * 신호등(빨강→초록)이 아니라 무채색 → 인디고 한 방향 램프다.
+ * 위험을 색으로 겁주지 않고, 강조가 강점 쪽에 남는다.
+ */
 export const REPLACEMENT_COLORS: Record<string, string> = {
-  critical: "#ef4444",
-  high: "#f97316",
-  medium: "#eab308",
-  low: "#22c55e",
-  assist: "#3b82f6",
-  human: "#8b5cf6",
+  critical: "#A9A497", // 맡겨도 되는 일 — 가장 흐리게
+  high: "#8A857A",
+  medium: "#55524B",
+  low: "#534AB7",
+  assist: "#3A3288",
+  human: "#26215C", // 당신만 할 수 있는 일 — 딥 인디고
 };
 
 export const REPLACEMENT_LABELS: Record<string, string> = {
@@ -270,11 +275,11 @@ export const REPLACEMENT_DESCRIPTIONS: Record<string, string> = {
 };
 
 export const TIME_CATEGORY_COLORS = {
-  gain: "#3b82f6",
-  erosion: "#ef4444",
-  augment: "#22c55e",
-  mixed: "#eab308",
-  human: "#8b5cf6",
+  erosion: "#8A857A", // 맡겨도 되는 시간 — 무채색
+  mixed: "#A9A497",
+  gain: "#534AB7",
+  augment: "#3A3288",
+  human: "#26215C", // 고유 시간 — 딥 인디고
 };
 export const TIME_CATEGORY_LABELS = {
   gain: "획득 시간",

@@ -1,7 +1,8 @@
 import type { Config } from "tailwindcss";
 
 export default {
-  darkMode: ["class"],
+  // PRD 3.6 D7 — 네온·다크·그라데이션 금지. 다크 모드를 두지 않는다.
+  darkMode: [],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
@@ -14,9 +15,21 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', 'sans-serif'],
+        // 유형 이름 등 "목소리"가 필요한 곳 (PRD 3.6)
+        voice: ['Noto Serif KR', 'Apple SD Gothic Neo', 'Georgia', 'serif'],
       },
       colors: {
+        /* ── PRD 3.6 팔레트. 문서의 이름을 그대로 쓴다 ── */
+        cream: "var(--cream)",
+        rule: "var(--rule)",
+        indigo: "var(--indigo)",
+        "indigo-soft": "var(--indigo-soft)",
+        ink: "var(--ink)",
+        body: "var(--body)",
+        quiet: "var(--quiet)",
+        faint: "var(--faint)",
+
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -52,6 +65,7 @@ export default {
         },
         diagnostic: {
           erosion: "hsl(var(--diagnostic-erosion))",
+          mixed: "hsl(var(--diagnostic-mixed))",
           gain: "hsl(var(--diagnostic-gain))",
           human: "hsl(var(--diagnostic-human))",
           assist: "hsl(var(--diagnostic-assist))",
