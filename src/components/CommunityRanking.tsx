@@ -22,32 +22,20 @@ export async function saveActivitiesToRanking(activities: AnalyzedActivity[]) {
     (a) => a.activity.trim() && a.replacement_level !== "human"
   );
 
+  // R3: 익명 INSERT/UPDATE 대신 집계 전용 RPC를 호출한다.
+  // count 증가가 서버에서 원자적으로 일어나므로 read-then-update 경합도 사라진다.
   for (const act of validActivities) {
     const normalized = normalizeActivityName(act.activity);
     if (!normalized) continue;
 
-    const { data: existing } = await supabase
-      .from("activity_rankings")
-      .select("id, count")
-      .eq("activity_name", normalized)
-      .maybeSingle();
+    const { error } = await supabase.rpc("bump_activity_ranking", {
+      _activity_name: normalized,
+      _replacement_score: act.replacement_score,
+      _replacement_level: act.replacement_level,
+      _category: act.category,
+    });
 
-    if (existing) {
-      await supabase
-        .from("activity_rankings")
-        .update({
-          count: existing.count + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("activity_rankings").insert({
-        activity_name: normalized,
-        replacement_score: act.replacement_score,
-        replacement_level: act.replacement_level,
-        category: act.category,
-      });
-    }
+    if (error) console.error("[ranking] bump failed:", error.message);
   }
 }
 

@@ -116,13 +116,12 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
     console.log("[Paywall] 잠금 해제 시도", { email: parsedEmail, diagnosisId });
 
     try {
-      // ⭐️ 기존 diagnosis_results 레코드의 email 컬럼을 UPDATE
+      // R2: 익명 전체 UPDATE 대신 email 첨부 전용 RPC (비어 있을 때만 채움)
       if (diagnosisId) {
-        await supabase
-          .from("diagnosis_results")
-          .update({ email: parsedEmail } as any)
-          .eq("id", diagnosisId);
-        console.log("[Paywall] diagnosis email updated:", diagnosisId);
+        await supabase.rpc("attach_diagnosis_email", {
+          _id: diagnosisId,
+          _email: parsedEmail,
+        });
       }
 
       // email_subscribers에 저장

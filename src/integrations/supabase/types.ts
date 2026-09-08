@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string
+          diagnosis_id: string | null
+          event_name: string
+          id: string
+          occurred_at: string
+          props: Json
+          screen: string
+          session_id: string
+          target: string | null
+        }
+        Insert: {
+          created_at?: string
+          diagnosis_id?: string | null
+          event_name: string
+          id?: string
+          occurred_at?: string
+          props?: Json
+          screen: string
+          session_id: string
+          target?: string | null
+        }
+        Update: {
+          created_at?: string
+          diagnosis_id?: string | null
+          event_name?: string
+          id?: string
+          occurred_at?: string
+          props?: Json
+          screen?: string
+          session_id?: string
+          target?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accuracy_feedback: {
         Row: {
           accuracy_score: number
@@ -204,6 +248,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_screen_funnel: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          screen: string
+          entered: number
+          exited: number
+          drop_off_rate: number
+        }[]
+      }
+      attach_diagnosis_email: {
+        Args: {
+          _email: string
+          _id: string
+        }
+        Returns: boolean
+      }
+      bump_activity_ranking: {
+        Args: {
+          _activity_name: string
+          _category: string
+          _replacement_level: string
+          _replacement_score: number
+        }
+        Returns: undefined
+      }
+      get_shared_result: {
+        Args: {
+          _id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          mbti: string
+          result_data: Json
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
