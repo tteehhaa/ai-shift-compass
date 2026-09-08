@@ -187,6 +187,8 @@ export type Database = {
           id: string
           mbti: string | null
           shift_index: number | null
+          wants_recheck: boolean
+          wants_weekly: boolean
         }
         Insert: {
           created_at?: string
@@ -194,6 +196,8 @@ export type Database = {
           id?: string
           mbti?: string | null
           shift_index?: number | null
+          wants_recheck?: boolean
+          wants_weekly?: boolean
         }
         Update: {
           created_at?: string
@@ -201,6 +205,8 @@ export type Database = {
           id?: string
           mbti?: string | null
           shift_index?: number | null
+          wants_recheck?: boolean
+          wants_weekly?: boolean
         }
         Relationships: []
       }

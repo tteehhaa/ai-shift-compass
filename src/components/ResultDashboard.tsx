@@ -1,11 +1,8 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { AnalysisResult, AnalyzedActivity, RoutineEntry } from "@/lib/types";
-import { Lock, Unlock, Loader2, Shield } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { z } from "zod";
 import CommunityRanking from "@/components/CommunityRanking";
 import AccuracyFeedback from "@/components/AccuracyFeedback";
+import SubscribeOptions from "@/components/SubscribeOptions";
 import {
   REPLACEMENT_COLORS,
   REPLACEMENT_LABELS,
@@ -18,8 +15,6 @@ import { cn } from "@/lib/utils";
 import { TrendingUp, Clock, Share2, Info, ChevronDown, ChevronUp, Coffee, AlertTriangle } from "lucide-react";
 import CountUp from "@/components/CountUp";
 import { Badge } from "@/components/ui/badge";
-
-const emailSchema = z.string().trim().email("올바른 이메일 주소를 입력해주세요.").max(255);
 
 interface ResultDashboardProps {
   result: AnalysisResult;
@@ -85,10 +80,6 @@ const SOURCE_BADGES = [
 export default function ResultDashboard({ result, mbti, routines, diagnosisId: externalDiagnosisId, onShowShare }: ResultDashboardProps) {
   const [showLegendDetail, setShowLegendDetail] = useState(false);
   const [showTimeLegend, setShowTimeLegend] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [isUnlocking, setIsUnlocking] = useState(false);
-  const [paywallEmail, setPaywallEmail] = useState("");
-  const [paywallAgreed, setPaywallAgreed] = useState(false);
   const [diagnosisId, setDiagnosisId] = useState<string | null>(externalDiagnosisId || null);
 
   // Sync when externalDiagnosisId arrives asynchronously
@@ -99,60 +90,6 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
   // ── #2 카테고리 위험도 ──
   const categoryRisks = useMemo(() => computeCategoryRisks(result.activities), [result.activities]);
   const topRiskCategory = categoryRisks[0];
-
-  // ── #4 Async unlock with duplicate handling ──
-  const handleUnlock = useCallback(async () => {
-    const parsed = emailSchema.safeParse(paywallEmail);
-    if (!parsed.success) {
-      toast({ title: parsed.error.errors[0].message, variant: "destructive" });
-      return;
-    }
-    if (!paywallAgreed) {
-      toast({ title: "개인정보 수집 및 이용에 동의해주세요.", variant: "destructive" });
-      return;
-    }
-
-    const parsedEmail = parsed.data;
-    console.log("[Paywall] 잠금 해제 시도", { email: parsedEmail, diagnosisId });
-
-    try {
-      // R2: 익명 전체 UPDATE 대신 email 첨부 전용 RPC (비어 있을 때만 채움)
-      if (diagnosisId) {
-        await supabase.rpc("attach_diagnosis_email", {
-          _id: diagnosisId,
-          _email: parsedEmail,
-        });
-      }
-
-      // email_subscribers에 저장
-      const { error } = await supabase.from("email_subscribers").insert({
-        email: parsedEmail,
-        mbti: mbti || null,
-        shift_index: result.shiftIndex,
-      });
-
-      if (error) {
-        if (error.code === "23505") {
-          setIsUnlocked(true);
-          console.log("[Paywall] 중복 이메일 — 즉시 해제");
-          toast({ title: "다시 오신 것을 환영합니다! 🎉", description: "리포트가 즉시 해제되었습니다." });
-          return;
-        }
-        throw error;
-      }
-
-      // New user — 1.5s simulation
-      setIsUnlocking(true);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setIsUnlocked(true);
-      setIsUnlocking(false);
-      console.log("[Paywall] 잠금 해제 완료");
-      toast({ title: "상세 리포트가 해제되었습니다! 🎉", description: "전체 분석 결과를 확인하세요." });
-    } catch {
-      setIsUnlocking(false);
-      toast({ title: "잠시 후 다시 시도해주세요.", variant: "destructive" });
-    }
-  }, [paywallEmail, paywallAgreed, mbti, result.shiftIndex, diagnosisId]);
 
   const levelDurations: Record<string, number> = {
     critical: 0, high: 0, medium: 0, low: 0, assist: 0, human: 0,
@@ -382,95 +319,6 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
         )}
       </div>
 
-      {/* ══════════════════════════════════════════════
-          PAYWALL GATE — 3페이지 진입 전 잠금 화면
-         ══════════════════════════════════════════════ */}
-      {!isUnlocked && (
-        <div className="relative">
-          <div className="rounded-3xl border-2 border-blue-200 bg-white p-8 shadow-lg relative z-10">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mb-5">
-                <Lock className="w-7 h-7 text-blue-500" />
-              </div>
-
-              {/* ── #3 심리적 유도: MBTI + 상위 % ── */}
-              <p className="text-sm font-semibold text-blue-600 mb-3">
-                상위 {result.percentileRank}%의 AI 활용 능력을 가진 {displayMbti}님
-              </p>
-
-              <h3 className="text-lg font-bold text-foreground mb-2">
-                상세 분석 리포트가 완성되었습니다.
-              </h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                지금 바로 확인하세요.
-              </p>
-              <p className="text-xs text-muted-foreground mb-6">
-                <strong className="text-blue-600">베타 기간 한정 0원</strong>{" "}
-                <span className="line-through">(정가 9,900원)</span>
-              </p>
-            </div>
-
-            {/* Email Input */}
-            <div className="space-y-3">
-              <input
-                type="email"
-                value={paywallEmail}
-                onChange={(e) => setPaywallEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && paywallAgreed && handleUnlock()}
-                placeholder="your@email.com"
-                className="w-full h-12 rounded-xl border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-
-              {/* Privacy Consent */}
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="relative mt-0.5">
-                  <input type="checkbox" checked={paywallAgreed} onChange={(e) => setPaywallAgreed(e.target.checked)} className="sr-only" />
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${paywallAgreed ? "bg-primary border-primary" : "border-muted-foreground/30 group-hover:border-muted-foreground/50"}`}>
-                    {paywallAgreed && (
-                      <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground leading-relaxed text-left">
-                  <strong className="text-foreground">[필수]</strong> 개인정보 수집 및 이용 동의 (업데이트 안내 및 관련 정보 수신)
-                  <br />
-                  <span className="text-[10px]">수집항목: 이메일 주소 · 목적: 리포트 발송 및 서비스 업데이트 · 보유기간: 동의 철회 시까지</span>
-                </span>
-              </label>
-
-              <button
-                onClick={handleUnlock}
-                disabled={isUnlocking || !paywallEmail}
-                className="w-full rounded-2xl bg-blue-600 text-white py-4 font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUnlocking ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    분석 중...
-                  </>
-                ) : (
-                  <>
-                    <Unlock className="w-5 h-5" />
-                    상세 결과 확인하기
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-muted-foreground/60">
-              <Shield className="w-3 h-3" />
-              <span>실제 결제는 발생하지 않으며, 버튼 클릭 시 즉시 열람할 수 있습니다.</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════
-          LOCKED CONTENT (Pages 3~5) — Blur when locked
-         ══════════════════════════════════════════════ */}
-      <div className={!isUnlocked ? "blur-md select-none pointer-events-none opacity-60" : ""}>
 
       {/* ── Economic Value Cards ── */}
       {/* 💰 창출 가치 카드 */}
@@ -661,6 +509,11 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
         <AccuracyFeedback diagnosisId={diagnosisId} />
       </div>
 
+      {/* S9. 이메일 — 선택 구독. 결과를 전부 본 뒤 하단에만 둔다 */}
+      <div className="mt-8">
+        <SubscribeOptions mbti={mbti} shiftIndex={result.shiftIndex} diagnosisId={diagnosisId} />
+      </div>
+
       {/* Share CTA - bottom */}
       <button
         onClick={onShowShare}
@@ -670,7 +523,6 @@ export default function ResultDashboard({ result, mbti, routines, diagnosisId: e
         결과 공유하기
       </button>
 
-      </div>{/* End blur wrapper */}
     </div>
   );
 }
