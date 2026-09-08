@@ -9,6 +9,14 @@ import { analyzeRoutines } from "@/lib/analysis-engine";
 import { fetchAlgorithmConfig } from "@/lib/algorithm-config";
 import { supabase } from "@/integrations/supabase/client";
 import type { RoutineEntry, AnalysisResult } from "@/lib/types";
+import {
+  trackScreenEnter,
+  trackScreenExit,
+  trackClick,
+  trackComplete,
+  trackAbandon,
+  type Screen,
+} from "@/lib/analytics";
 
 const SAMPLE_ROUTINES: RoutineEntry[] = [
   { time: "08:00", activity: "이메일 확인 및 답장", duration: 1, tag: "📧 단순 행정" },
@@ -31,6 +39,29 @@ export default function Index() {
 
   // ⭐️ 핵심 추가: 이 사람이 '공유 링크'를 타고 온 방문자인지 추적하는 상태
   const [isSharedView, setIsSharedView] = useState(false);
+
+  // 화면정의 2장 대응. PRD D2 에 따라 업무 체크(S2)와 시간·활용도(S3)는 한 화면이다.
+  const screenOf: Record<Step, Screen> = { input: "S2", analyzing: "S5", result: "S6" };
+  const currentScreen = screenOf[step];
+
+  // 화면 진입/이탈 — step 이 바뀔 때마다 짝으로 기록
+  useEffect(() => {
+    trackScreenEnter(currentScreen, { diagnosisId });
+    return () => {
+      trackScreenExit(currentScreen, { diagnosisId });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentScreen]);
+
+  // 결과에 닿기 전에 창을 닫거나 탭을 떠난 경우 = 이탈
+  useEffect(() => {
+    if (step === "result") return;
+    const onLeave = () => {
+      if (document.visibilityState === "hidden") trackAbandon(currentScreen);
+    };
+    document.addEventListener("visibilitychange", onLeave);
+    return () => document.removeEventListener("visibilitychange", onLeave);
+  }, [step, currentScreen]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -58,6 +89,7 @@ export default function Index() {
   const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim() && r.activity.length <= 40);
 
   const handleAnalyze = () => {
+    trackClick("S2", "start_diagnosis", { props: { routine_count: routines.length } });
     setStep("analyzing");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -80,7 +112,10 @@ export default function Index() {
 
       if (diagData?.id) {
         setDiagnosisId(diagData.id);
-        console.log("[Anonymous Save] diagnosis_id:", diagData.id);
+        trackComplete("S6", {
+          diagnosisId: diagData.id,
+          props: { shift_index: res.shiftIndex, routine_count: routines.length },
+        });
       }
     } catch (dbError) {
       console.error("결과 저장 실패:", dbError);
@@ -88,6 +123,7 @@ export default function Index() {
   }, [routines, mbti]);
 
   const handleReset = () => {
+    trackClick("S6", isSharedView ? "retry_from_shared" : "retry", { diagnosisId });
     setStep("input");
     setResult(null);
     setShowShare(false);

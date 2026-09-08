@@ -5,6 +5,7 @@ import { Download, Copy, Share2, Check, Loader2, X } from "lucide-react";
 import { REPLACEMENT_COLORS } from "@/lib/analysis-engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { trackScreenEnter, trackClick } from "@/lib/analytics";
 
 const SERVICE_URL = "https://ai-shift-compass.lovable.app";
 
@@ -165,6 +166,11 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
   const [shareUrl, setShareUrl] = useState<string>(SERVICE_URL);
   const [shareId, setShareId] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // S7 진입 — 공유 시트가 열린 시점
+  useEffect(() => {
+    trackScreenEnter("S7");
+  }, []);
 
   // Supabase에 결과 저장하고 짧은 URL 생성
   const saveAndGetShareUrl = async (): Promise<string | null> => {
@@ -364,17 +370,17 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
 
           {/* 3 main action buttons */}
           <div className="flex gap-3">
-            <button onClick={handleDownload} disabled={capturing} className={btnBase}>
+            <button onClick={() => { trackClick("S7", "save_image"); handleDownload(); }} disabled={capturing} className={btnBase}>
               <Download className="w-5 h-5" />
               <span className="text-xs font-medium">이미지 저장</span>
             </button>
 
-            <button onClick={handleCopy} disabled={savingLink} className={btnBase}>
+            <button onClick={() => { trackClick("S7", "copy_link"); handleCopy(); }} disabled={savingLink} className={btnBase}>
               {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
               <span className="text-xs font-medium">{copied ? "복사됨!" : "결과 복사"}</span>
             </button>
 
-            <button onClick={handleShare} disabled={savingLink} className={btnBase}>
+            <button onClick={() => { trackClick("S7", "share_native"); handleShare(); }} disabled={savingLink} className={btnBase}>
               <Share2 className="w-5 h-5" />
               <span className="text-xs font-medium">공유하기</span>
             </button>
@@ -387,7 +393,7 @@ export default function ShareCards({ result, mbti, onClose }: ShareCardsProps) {
               {SNS_PLATFORMS.map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => handleSNSShare(p.id)}
+                  onClick={() => { trackClick("S7", `share_${p.id}`); handleSNSShare(p.id); }}
                   disabled={savingLink}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border/50 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all active:scale-[0.97] disabled:opacity-40"
                 >
