@@ -1,241 +1,313 @@
-import { useState, useCallback, useEffect } from "react";
-import { ArrowRight, RotateCcw, Sparkles } from "lucide-react";
-import MBTIGrid from "@/components/MBTIGrid";
-import RoutineInput from "@/components/RoutineInput";
-import AnalysisAnimation from "@/components/AnalysisAnimation";
-import ResultDashboard from "@/components/ResultDashboard";
-import ShareCards from "@/components/ShareCards";
-import { analyzeRoutines } from "@/lib/analysis-engine";
-import { fetchAlgorithmConfig } from "@/lib/algorithm-config";
-import { supabase } from "@/integrations/supabase/client";
-import type { RoutineEntry, AnalysisResult } from "@/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { z } from "zod";
+import Landing from "@/components/flow/Landing";
+import OccupationPicker from "@/components/flow/OccupationPicker";
+import TaskSheet from "@/components/flow/TaskSheet";
+import PurposePicker from "@/components/flow/PurposePicker";
+import ExitIntentSheet from "@/components/flow/ExitIntentSheet";
+import ResultReport from "@/components/ResultReport";
+import ShareSheet from "@/components/ShareSheet";
+import PairInvite from "@/components/PairInvite";
+import TypeChallenge from "@/components/TypeChallenge";
+import SubscribeOptions from "@/components/SubscribeOptions";
+import { toast } from "@/hooks/use-toast";
+import { diagnose, toPublicSummary } from "@/lib/diagnosis-engine";
+import { acceptPairing, reportOccupationMiss, saveDiagnosis } from "@/lib/diagnosis-store";
+import type { DiagnosisResult, TaskEntry, Track } from "@/lib/diagnosis-types";
 import {
-  trackScreenEnter,
-  trackScreenExit,
+  trackAbandon,
   trackClick,
   trackComplete,
-  trackAbandon,
+  trackScreenEnter,
+  trackScreenExit,
   type Screen,
 } from "@/lib/analytics";
 
-const SAMPLE_ROUTINES: RoutineEntry[] = [
-  { time: "08:00", activity: "이메일 확인 및 답장", duration: 1, tag: "📧 단순 행정" },
-  { time: "09:00", activity: "AI로 리서치 자료 정리", duration: 2, tag: "📚 자기계발" },
-  { time: "11:00", activity: "보고서 작성", duration: 1, tag: "📧 단순 행정" },
-  { time: "13:00", activity: "점심 식사 및 산책", duration: 1, tag: "🥗 식사/요리" },
-  { time: "14:00", activity: "코딩 및 개발 작업", duration: 3, tag: "💻 전문 업무" },
-  { time: "17:00", activity: "유튜브 시청", duration: 1, tag: "🎬 미디어 감상" },
-];
+/**
+ * 단일 페이지 진단 흐름 — 화면정의 4장
+ *
+ *   S0 랜딩 → S1 직종 → S2+S3 업무·시간 → S4 목적 → S6 결과 → S7/S8/S9
+ *
+ * 구조 결정
+ *  · **D1** S5(계산 중)를 두지 않는다. 경쟁사는 즉시 갱신을 강점으로 내세우고,
+ *    인위적 지연은 검증 안 된 통념이며 이탈 지점만 늘린다.
+ *  · **D2** S2와 S3는 한 화면이다 (TaskSheet).
+ */
 
-type Step = "input" | "analyzing" | "result";
+type Step = "S0" | "S1" | "S2" | "S4" | "S6";
+
+const SCREEN_OF: Record<Step, Screen> = { S0: "S0", S1: "S1", S2: "S2", S4: "S4", S6: "S6" };
+const IDLE_MS = 30_000;
+const emailSchema = z.string().trim().email("올바른 이메일 주소를 입력해주세요.").max(255);
 
 export default function Index() {
-  const [step, setStep] = useState<Step>("input");
-  const [mbti, setMbti] = useState("");
-  const [routines, setRoutines] = useState<RoutineEntry[]>(SAMPLE_ROUTINES);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [showShare, setShowShare] = useState(false);
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+
+  const [step, setStep] = useState<Step>("S0");
+  const [occupationId, setOccupationId] = useState<string>("");
+  const [entries, setEntries] = useState<TaskEntry[]>([]);
+  const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
+  const [showShare, setShowShare] = useState(false);
+  const [exitSheet, setExitSheet] = useState(false);
+  const exitShown = useRef(false);
 
-  // ⭐️ 핵심 추가: 이 사람이 '공유 링크'를 타고 온 방문자인지 추적하는 상태
-  const [isSharedView, setIsSharedView] = useState(false);
+  // 궁합 초대를 타고 들어온 경우 (S8b). 결과 뒤에 이메일을 받아 수락으로 잇는다.
+  const pendingPairing = params.get("pair");
+  const [pairEmail, setPairEmail] = useState("");
+  const [pairBusy, setPairBusy] = useState(false);
 
-  // 화면정의 2장 대응. PRD D2 에 따라 업무 체크(S2)와 시간·활용도(S3)는 한 화면이다.
-  const screenOf: Record<Step, Screen> = { input: "S2", analyzing: "S5", result: "S6" };
-  const currentScreen = screenOf[step];
+  const screen = SCREEN_OF[step];
 
-  // 화면 진입/이탈 — step 이 바뀔 때마다 짝으로 기록
   useEffect(() => {
-    trackScreenEnter(currentScreen, { diagnosisId });
+    trackScreenEnter(screen, { diagnosisId });
     return () => {
-      trackScreenExit(currentScreen, { diagnosisId });
+      trackScreenExit(screen, { diagnosisId });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentScreen]);
+  }, [screen]);
 
-  // 결과에 닿기 전에 창을 닫거나 탭을 떠난 경우 = 이탈
+  // 결과에 닿기 전에 탭을 떠난 경우 = 이탈
   useEffect(() => {
-    if (step === "result") return;
-    const onLeave = () => {
-      if (document.visibilityState === "hidden") trackAbandon(currentScreen);
+    if (step === "S6") return;
+    const onHide = () => {
+      if (document.visibilityState === "hidden") trackAbandon(screen);
     };
-    document.addEventListener("visibilitychange", onLeave);
-    return () => document.removeEventListener("visibilitychange", onLeave);
-  }, [step, currentScreen]);
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [step, screen]);
 
+  /**
+   * E1 — S2(업무·시간)에서 뒤로가기 또는 30초 무동작에 **1회만**.
+   * "과하면 역효과"라 exitShown 으로 세션당 한 번을 강제한다.
+   */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const dataParam = params.get("data");
+    if (step !== "S2" || exitShown.current) return;
 
-    if (dataParam) {
-      try {
-        const decodedString = decodeURIComponent(atob(dataParam));
-        const parsedData = JSON.parse(decodedString);
+    const fire = () => {
+      if (exitShown.current) return;
+      exitShown.current = true;
+      setExitSheet(true);
+      trackScreenEnter("E1");
+    };
 
-        if (parsedData && parsedData.result && parsedData.mbti) {
-          setResult(parsedData.result);
-          setMbti(parsedData.mbti);
-          setStep("result");
-          setIsSharedView(true); // 공유 링크로 들어왔음을 표시!
+    let timer = window.setTimeout(fire, IDLE_MS);
+    const bump = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fire, IDLE_MS);
+    };
 
-          window.history.replaceState({}, "", window.location.pathname);
-        }
-      } catch (error) {
-        console.error("공유된 데이터를 읽는 데 실패했습니다:", error);
-      }
-    }
-  }, []);
+    window.history.pushState({ guard: true }, "");
+    const onPop = () => fire();
 
-  const canAnalyze = mbti && routines.length > 0 && routines.every((r) => r.activity.trim() && r.activity.length <= 40);
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("pointerdown", bump);
+    window.addEventListener("keydown", bump);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("pointerdown", bump);
+      window.removeEventListener("keydown", bump);
+    };
+  }, [step]);
 
-  const handleAnalyze = () => {
-    trackClick("S2", "start_diagnosis", { props: { routine_count: routines.length } });
-    setStep("analyzing");
+  const goto = (next: Step) => {
+    setStep(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleAnalysisComplete = useCallback(async () => {
-    const config = await fetchAlgorithmConfig();
-    const res = analyzeRoutines(routines, mbti, config);
-    setResult(res);
-    setStep("result");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleOccupation = (id: string) => {
+    setOccupationId(id);
+    setEntries([]);
+    trackClick("S1", "pick_occupation", { props: { occupation: id } });
+    goto("S2");
+  };
 
-    // ⭐️ 분석 즉시 익명 저장 — 이메일 없이 routines + result_data 즉시 Insert
-    try {
-      const { data: diagData } = await supabase.from("diagnosis_results").insert({
-        mbti: mbti || "UNKNOWN",
-        routines: routines as unknown as import("@/integrations/supabase/types").Json,
-        result_data: res as unknown as import("@/integrations/supabase/types").Json,
-        shift_index: res.shiftIndex,
-      }).select("id").single();
+  /** D1 — 계산 화면 없이 그 자리에서 결과를 만든다 */
+  const handleTrack = useCallback(
+    async (track: Track) => {
+      trackClick("S4", `track_${track.toLowerCase()}`);
+      const computed = diagnose({ occupationId, tasks: entries, track });
+      setResult(computed);
+      goto("S6");
 
-      if (diagData?.id) {
-        setDiagnosisId(diagData.id);
+      const id = await saveDiagnosis(computed);
+      if (id) {
+        setDiagnosisId(id);
         trackComplete("S6", {
-          diagnosisId: diagData.id,
-          props: { shift_index: res.shiftIndex, routine_count: routines.length },
+          diagnosisId: id,
+          props: {
+            type_id: computed.type.id,
+            task_count: computed.tasks.length,
+            track: track.toLowerCase(),
+          },
         });
       }
-    } catch (dbError) {
-      console.error("결과 저장 실패:", dbError);
-    }
-  }, [routines, mbti]);
+    },
+    [occupationId, entries]
+  );
 
-  const handleReset = () => {
-    trackClick("S6", isSharedView ? "retry_from_shared" : "retry", { diagnosisId });
-    setStep("input");
+  const restart = () => {
+    setStep("S0");
+    setOccupationId("");
+    setEntries([]);
     setResult(null);
-    setShowShare(false);
-    setIsSharedView(false);
     setDiagnosisId(null);
+    setShowShare(false);
+    exitShown.current = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  /** S8b — 초대받은 쪽도 이메일을 넣어야 궁합이 성립한다 (이메일 2건) */
+  const acceptInvite = async () => {
+    const parsed = emailSchema.safeParse(pairEmail);
+    if (!parsed.success) {
+      toast({ title: parsed.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+    if (!pendingPairing || !diagnosisId) {
+      toast({ title: "결과 저장이 끝난 뒤에 다시 눌러 주세요.", variant: "destructive" });
+      return;
+    }
+    setPairBusy(true);
+    trackClick("S8", "accept_invite", { diagnosisId });
+    const ok = await acceptPairing(pendingPairing, diagnosisId, parsed.data);
+    setPairBusy(false);
+    if (!ok) {
+      toast({ title: "이미 성립됐거나 만료된 초대입니다.", variant: "destructive" });
+      return;
+    }
+    navigate(`/p/${pendingPairing}`);
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border/50">
+      <header className="sticky top-0 z-40 bg-cream border-b border-rule">
         <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-semibold text-foreground tracking-tight">AI Life Shift</h1>
-            <p className="text-[11px] text-muted-foreground">AI 라이프 시프트 진단</p>
+            <h1 className="text-sm font-semibold text-ink tracking-tight">AI Life Shift</h1>
+            <p className="text-[11px] text-faint">직업이 아니라, 당신의 일주일</p>
           </div>
-          {step === "result" && (
-            <button
-              onClick={handleReset}
-              className={
-                isSharedView
-                  ? "flex items-center gap-1.5 text-sm font-bold text-primary hover:opacity-80 transition-opacity"
-                  : "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              }
-            >
-              {isSharedView ? (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  나도 진단하기
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="w-4 h-4" />
-                  다시 진단
-                </>
-              )}
+          {step === "S6" && (
+            <button onClick={restart} className="text-xs text-quiet hover:text-indigo transition-colors">
+              다시 진단
             </button>
           )}
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-8">
-        {step === "input" && (
-          <div className="space-y-10">
-            {/* Hero */}
-            <div className="text-center space-y-3 pt-4">
-              <h2 className="text-2xl font-bold text-foreground tracking-tight">본인의 일상을 입력하세요</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
-                AI가 당신의 삶에 얼마나 영향을 끼칠 수 있는지 진단합니다.
-              </p>
-            </div>
-
-            {/* Routine Input */}
-            <section>
-              <h3 className="text-sm font-semibold text-foreground mb-3">평범한 나의 일상 (시간대별 활동)</h3>
-              <RoutineInput routines={routines} onChange={setRoutines} />
-            </section>
-
-            {/* MBTI */}
-            <section>
-              <h3 className="text-sm font-semibold text-foreground mb-3">MBTI 선택</h3>
-              <MBTIGrid selected={mbti} onSelect={setMbti} />
-              {mbti && (
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  선택됨:{" "}
-                  <span className="font-semibold text-foreground">{mbti === "UNKNOWN" ? "MBTI 모름" : mbti}</span>
-                </p>
-              )}
-            </section>
-
-            {/* CTA */}
-            <button
-              onClick={handleAnalyze}
-              disabled={!canAnalyze}
-              className="w-full rounded-2xl bg-primary text-primary-foreground py-4 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              AI 시프트 진단 시작
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+      <main className="max-w-2xl mx-auto px-5">
+        {step === "S0" && (
+          <Landing
+            onStart={() => {
+              trackClick("S0", "start");
+              goto("S1");
+            }}
+          />
         )}
 
-        {step === "analyzing" && <AnalysisAnimation onComplete={handleAnalysisComplete} />}
+        {step === "S1" && (
+          <OccupationPicker onSelect={handleOccupation} onMiss={(term) => reportOccupationMiss(term)} />
+        )}
 
-        {step === "result" && result && (
-          <div className="space-y-8 pb-10">
-            <ResultDashboard result={result} mbti={mbti} routines={routines} diagnosisId={diagnosisId} onShowShare={() => setShowShare(true)} />
+        {step === "S2" && (
+          <TaskSheet
+            occupationId={occupationId}
+            entries={entries}
+            onChange={setEntries}
+            onNext={() => {
+              trackClick("S2", "tasks_done", { props: { task_count: entries.length } });
+              goto("S4");
+            }}
+          />
+        )}
 
-            {/* ⭐️ 핵심 추가: 공유 방문자에게만 보이는 거대한 유입 배너 */}
-            {isSharedView && (
-              <div className="glass-card rounded-3xl p-8 text-center border-2 border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">나의 AI 시프트 지수는 얼마일까?</h3>
-                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                  남의 결과만 보지 말고,
-                  <br />내 일상에 숨겨진 AI 레버리지 기회를 확인해보세요!
-                </p>
-                <button
-                  onClick={handleReset}
-                  className="w-full rounded-2xl bg-primary text-primary-foreground py-4 font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 transition-all hover:opacity-90 active:scale-[0.99]"
-                >
-                  🚀 지금 바로 1분 만에 진단하기
-                </button>
-              </div>
-            )}
-          </div>
+        {step === "S4" && <PurposePicker onSelect={handleTrack} />}
+
+        {step === "S6" && result && (
+          <ResultReport
+            result={result}
+            onShare={() => setShowShare(true)}
+            onInvite={() =>
+              document.getElementById("pair-block")?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            {/* F2 반박 버튼 */}
+            <TypeChallenge result={result} diagnosisId={diagnosisId} onRevise={() => goto("S2")} />
+
+            <div id="pair-block">
+              {pendingPairing ? (
+                <section className="rule-top pt-8" data-testid="pair-accept">
+                  <h3 className="text-lg font-medium text-ink">겹쳐 본 결과 받기</h3>
+                  <p className="text-sm text-body mt-2 leading-relaxed">
+                    초대한 분과 당신의 업무 지도를 겹쳐서 보여드릴게요. 결과는 두 분 모두에게 메일로
+                    보내드립니다.
+                  </p>
+                  <div className="mt-5 flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="email"
+                      value={pairEmail}
+                      onChange={(e) => setPairEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      data-testid="accept-email"
+                      className="flex-1 h-11 border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus-visible:outline-none focus-visible:border-[var(--indigo)]"
+                    />
+                    <button
+                      onClick={acceptInvite}
+                      disabled={pairBusy}
+                      data-testid="accept-submit"
+                      className="h-11 px-6 bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40"
+                    >
+                      {pairBusy ? "여는 중" : "겹쳐 보기"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-faint leading-relaxed mt-3">
+                    수집 항목: 이메일 주소 · 목적: 궁합 결과 발송 · 보관 기간: 수신 거부 시까지 (최대 12개월)
+                  </p>
+                </section>
+              ) : (
+                <PairInvite
+                  diagnosisId={diagnosisId}
+                  onCreated={(pairingId) => navigate(`/p/${pairingId}?owner=1`)}
+                />
+              )}
+            </div>
+
+            {/* S9 — 결과를 전부 본 뒤 하단. 게이트가 아니라 선택이다 */}
+            <SubscribeOptions
+              typeId={result.type.id}
+              occupationId={result.occupationId}
+              diagnosisId={diagnosisId}
+            />
+          </ResultReport>
         )}
       </main>
 
-      {showShare && result && <ShareCards result={result} mbti={mbti} onClose={() => setShowShare(false)} />}
+      {showShare && result && (
+        <ShareSheet
+          summary={toPublicSummary(result)}
+          resultUrl={diagnosisId ? `${window.location.origin}/r/${diagnosisId}` : window.location.origin}
+          diagnosisId={diagnosisId}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {exitSheet && (
+        <ExitIntentSheet
+          onContinue={() => {
+            trackClick("E1", "continue");
+            setExitSheet(false);
+          }}
+          onLeave={() => {
+            trackClick("E1", "leave");
+            trackAbandon("S2");
+            setExitSheet(false);
+            restart();
+          }}
+        />
+      )}
     </div>
   );
 }

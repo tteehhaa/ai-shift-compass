@@ -18,14 +18,21 @@ const ADMIN_FILES = ["AdminDashboard.tsx", "AdminLogin.tsx"];
 function appSources(): string {
   const roots = ["components", "pages", "lib"];
   const out: string[] = [];
-  for (const root of roots) {
-    const dir = join(process.cwd(), "src", root);
-    for (const f of readdirSync(dir)) {
-      if (!/\.(ts|tsx)$/.test(f)) continue;
-      if (ADMIN_FILES.includes(f)) continue;
-      out.push(readFileSync(join(dir, f), "utf-8"));
+
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      // shadcn 프리미티브는 PRD 3.6 적용 대상이 아니다
+      if (entry.isDirectory()) {
+        if (entry.name !== "ui") walk(join(dir, entry.name));
+        continue;
+      }
+      if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+      if (ADMIN_FILES.includes(entry.name)) continue;
+      out.push(readFileSync(join(dir, entry.name), "utf-8"));
     }
-  }
+  };
+
+  for (const root of roots) walk(join(process.cwd(), "src", root));
   return out.join("\n");
 }
 
@@ -76,22 +83,25 @@ describe("D7 — 종이 질감", () => {
 });
 
 describe("D4 — 강조는 강점 쪽에", () => {
-  it("대체 스펙트럼이 신호등(빨강·주황·초록)이 아니다", () => {
-    const engine = readFileSync(join(process.cwd(), "src/lib/analysis-engine.ts"), "utf-8");
+  const report = readFileSync(join(process.cwd(), "src/components/ResultReport.tsx"), "utf-8");
+
+  it("결과 화면이 신호등 색(빨강·주황·초록)을 쓰지 않는다", () => {
     for (const banned of ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6"]) {
-      expect(engine).not.toContain(banned);
+      expect(report).not.toContain(banned);
     }
   });
 
-  it('"당신만 할 수 있는 일"(human)이 딥 인디고, "맡겨도 되는 일"(critical)이 무채색이다', () => {
-    const engine = readFileSync(join(process.cwd(), "src/lib/analysis-engine.ts"), "utf-8");
-    expect(engine).toMatch(/human:\s*"#26215C"/);
-    expect(engine).toMatch(/critical:\s*"#A9A497"/);
+  it('"당신만 할 수 있는 일"이 "맡겨도 되는 일"보다 먼저 나온다', () => {
+    expect(report.indexOf("work-map-yours")).toBeLessThan(report.indexOf("work-map-delegable"));
   });
 
-  it("업무 태그에 파스텔 배경 채우기가 없다", () => {
-    const types = readFileSync(join(process.cwd(), "src/lib/types.ts"), "utf-8");
-    expect(types).not.toMatch(/bgColor: '#(eff6ff|fef2f2|f0fdf4|f9fafb)'/i);
+  it("강점은 딥 인디고, 맡길 일은 무채색으로 둔다", () => {
+    expect(report).toMatch(/당신만 할 수 있는 일[\s\S]{0,600}text-indigo/);
+    expect(report).toMatch(/맡겨도 되는 일[\s\S]{0,600}text-body/);
+  });
+
+  it("색 블록(배경 채우기)으로 강조하지 않는다", () => {
+    expect(report).not.toMatch(/bg-(red|orange|amber|green|blue|purple)-\d{2,3}/);
   });
 });
 

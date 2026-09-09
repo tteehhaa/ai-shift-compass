@@ -179,9 +179,66 @@ describe("RLS 정책 — 익명 쓰기/전체 읽기 차단", () => {
 
   // ── 개인정보 테이블 전반 ──
   it("개인정보 테이블은 익명 SELECT 가 하나도 없다", () => {
-    const sensitive = ["diagnosis_results", "email_subscribers", "accuracy_feedback", "user_roles"];
+    const sensitive = [
+      "diagnosis_results",
+      "email_subscribers",
+      "accuracy_feedback",
+      "user_roles",
+      // v2
+      "diagnoses",
+      "pairings",
+      "pairing_emails",
+      "challenge_feedback",
+      "occupation_misses",
+    ];
     const leaks = sensitive.flatMap((t) => forTable(t, "SELECT").filter(isAnonymous));
     expect(leaks).toEqual([]);
+  });
+
+  // ── v2 (진단 v2 / 궁합) ──
+  it("v2 테이블에는 익명 쓰기 정책이 아예 없다 — 쓰기는 전부 RPC 경유다", () => {
+    const v2 = ["diagnoses", "pairings", "pairing_emails", "challenge_feedback", "occupation_misses"];
+    const anonWrite = v2.flatMap((t) => [
+      ...forTable(t, "INSERT"),
+      ...forTable(t, "UPDATE"),
+      ...forTable(t, "DELETE"),
+    ]).filter(isAnonymous);
+    expect(anonWrite).toEqual([]);
+  });
+
+  it("공개 조회 RPC 는 요약만 돌려준다 — tasks 컬럼을 내보내지 않는다", () => {
+    const fn = /CREATE OR REPLACE FUNCTION public\.get_public_diagnosis[\s\S]*?\$\$([\s\S]*?)\$\$/.exec(
+      migrationSql
+    );
+    expect(fn).not.toBeNull();
+    expect(fn![1]).not.toMatch(/d\.tasks/);
+    expect(fn![1]).toMatch(/d\.summary/);
+  });
+
+  it("궁합 조회 RPC 도 두 사람의 요약만 돌려준다", () => {
+    const fn = /CREATE OR REPLACE FUNCTION public\.get_pairing[\s\S]*?\$\$([\s\S]*?)\$\$/.exec(
+      migrationSql
+    );
+    expect(fn).not.toBeNull();
+    expect(fn![1]).not.toMatch(/tasks|email/);
+  });
+
+  it("이메일 첨부는 v2 에서도 비어 있을 때만 채운다", () => {
+    expect(migrationSql).toMatch(/CREATE OR REPLACE FUNCTION public\.attach_email_to_diagnosis/);
+    const fn = /CREATE OR REPLACE FUNCTION public\.attach_email_to_diagnosis[\s\S]*?\$\$([\s\S]*?)\$\$/.exec(
+      migrationSql
+    );
+    expect(fn![1]).toMatch(/AND email IS NULL/);
+  });
+
+  it("관리자 집계 함수는 has_role 을 다시 확인한다", () => {
+    for (const fnName of ["admin_diagnosis_rankings", "admin_challenge_stats", "admin_screen_funnel"]) {
+      const fn = new RegExp(
+        `CREATE OR REPLACE FUNCTION public\\.${fnName}[\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$`
+      ).exec(migrationSql);
+      expect(fn, fnName).not.toBeNull();
+      expect(fn![1], fnName).toMatch(/has_role\(auth\.uid\(\), 'admin'\)/);
+    }
   });
 
   it("모든 SECURITY DEFINER 함수는 search_path 를 고정한다", () => {

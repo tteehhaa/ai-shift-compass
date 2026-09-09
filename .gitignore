@@ -25,3 +25,13 @@ dist-ssr
 
 # Supabase CLI 로컬 상태
 supabase/.temp/
+
+# 환경 변수 — .env.example 만 커밋한다.
+# anon 키는 공개돼도 되는 키지만, 프로젝트 ref 까지 저장소에 박아 둘 이유는 없다.
+.env
+.env.local
+
+# bkit 로컬 런타임 상태 (PDCA 산출물인 workflows/decisions/checkpoints 는 커밋한다)
+.bkit/runtime/
+.bkit/audit/
+.bkit/state/

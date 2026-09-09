@@ -19,8 +19,9 @@ import { useEffect } from "react";
 const emailSchema = z.string().trim().email("올바른 이메일 주소를 입력해주세요.").max(255);
 
 interface SubscribeOptionsProps {
-  mbti: string;
-  shiftIndex: number;
+  /** 16유형 번호 (유형16.md). MBTI 축은 v2 에서 버렸다 (PRD §9) */
+  typeId: number;
+  occupationId: string;
   diagnosisId?: string | null;
 }
 
@@ -37,7 +38,7 @@ const OPTIONS = [
   },
 ];
 
-export default function SubscribeOptions({ mbti, shiftIndex, diagnosisId }: SubscribeOptionsProps) {
+export default function SubscribeOptions({ typeId, occupationId, diagnosisId }: SubscribeOptionsProps) {
   const [email, setEmail] = useState("");
   const [recheck, setRecheck] = useState(false);
   const [weekly, setWeekly] = useState(false);
@@ -68,7 +69,7 @@ export default function SubscribeOptions({ mbti, shiftIndex, diagnosisId }: Subs
     try {
       if (diagnosisId) {
         // 비어 있을 때만 채우는 RPC. 남의 진단에 이메일을 덮어쓸 수 없다.
-        await supabase.rpc("attach_diagnosis_email", {
+        await supabase.rpc("attach_email_to_diagnosis", {
           _id: diagnosisId,
           _email: parsed.data,
         });
@@ -76,8 +77,9 @@ export default function SubscribeOptions({ mbti, shiftIndex, diagnosisId }: Subs
 
       const { error } = await supabase.from("email_subscribers").insert({
         email: parsed.data,
-        mbti: mbti || null,
-        shift_index: shiftIndex,
+        diagnosis_id: diagnosisId ?? null,
+        type_id: typeId,
+        occupation_id: occupationId,
         wants_recheck: recheck,
         wants_weekly: weekly,
       });
@@ -92,7 +94,7 @@ export default function SubscribeOptions({ mbti, shiftIndex, diagnosisId }: Subs
     } finally {
       setSaving(false);
     }
-  }, [email, recheck, weekly, mbti, shiftIndex, diagnosisId]);
+  }, [email, recheck, weekly, typeId, occupationId, diagnosisId]);
 
   if (done) {
     return (
@@ -149,7 +151,7 @@ export default function SubscribeOptions({ mbti, shiftIndex, diagnosisId }: Subs
       </div>
 
       <p className="text-xs text-faint leading-relaxed mt-3">
-        수집 항목: 이메일 주소 · 목적: 선택하신 리포트 발송 · 보관 기간: 수신 거부 시까지 (최대 1년)
+        수집 항목: 이메일 주소 · 목적: 선택하신 리포트 발송 · 보관 기간: 수신 거부 시까지 (최대 12개월)
         <br />
         모든 메일 하단의 수신 거부 링크로 언제든 해지할 수 있습니다.
       </p>

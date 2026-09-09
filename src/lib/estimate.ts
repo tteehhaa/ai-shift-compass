@@ -1,5 +1,3 @@
-import type { AnalysisResult } from "@/lib/types";
-
 /**
  * PRD 3.6 D3 — 절감량을 범위로 표시한다.
  *
@@ -9,17 +7,10 @@ import type { AnalysisResult } from "@/lib/types";
  * 같은 이야기이고, 경쟁사가 퍼센트 대신 4단계 밴드를 쓰는 이유와도 같다.
  */
 
-/** 하루 입력을 주 단위로 옮길 때 쓰는 평일 수. 엔진의 월 22일·연 260일과 같은 기준이다. */
-export const WORKDAYS_PER_WEEK = 5;
-
-/** 되찾을 수 있는 시간 — 활동별 압축 절감분의 합 (하루 기준) */
-export function dailySavedHours(result: AnalysisResult): number {
-  return result.activities.reduce((sum, a) => sum + a.saved_time_hr, 0);
-}
-
-export function weeklySavedHours(result: AnalysisResult): number {
-  return dailySavedHours(result) * WORKDAYS_PER_WEEK;
-}
+/**
+ * 되찾을 수 있는 시간의 합산은 진단 엔진이 한다 (`diagnose()` 의 savableWeeklyHours).
+ * 이 파일은 그 점추정 하나를 어떻게 **말할 것인가**만 책임진다.
+ */
 
 export interface HourRange {
   low: number;

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatHourRange, toHourRange, weeklyMeaning, weeklySavedHours } from "@/lib/estimate";
-import type { AnalysisResult } from "@/lib/types";
+import { formatHourRange, toHourRange, weeklyMeaning } from "@/lib/estimate";
 
 describe("D3 — 절감량은 범위로 표시한다", () => {
   it("PRD 예시대로 6.5시간이 5~8시간이 된다", () => {
@@ -45,18 +44,5 @@ describe("US-3 — 시간을 일 단위로 옮긴 한 줄", () => {
       const line = weeklyMeaning(h);
       expect(line).not.toMatch(/원|만원|\d{4}년/);
     }
-  });
-});
-
-describe("되찾을 시간 합산", () => {
-  const make = (saved: number[]): AnalysisResult =>
-    ({ activities: saved.map((s) => ({ saved_time_hr: s })) } as unknown as AnalysisResult);
-
-  it("활동별 절감분을 평일 기준 주 단위로 합산한다", () => {
-    expect(weeklySavedHours(make([1, 0.5, 0]))).toBeCloseTo(7.5);
-  });
-
-  it("절감분이 없으면 0", () => {
-    expect(weeklySavedHours(make([0, 0]))).toBe(0);
   });
 });
