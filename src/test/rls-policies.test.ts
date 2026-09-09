@@ -20,9 +20,44 @@ interface Policy {
   permissive: boolean; // USING (true) / WITH CHECK (true) 처럼 무조건 통과하는지
 }
 
-/** $$ ... $$ 함수 본문을 제거해 세미콜론 분리를 안전하게 만든다. */
-function stripDollarQuoted(sql: string): string {
-  return sql.replace(/\$\$[\s\S]*?\$\$/g, "$$__BODY__$$");
+/**
+ * 달러 인용 본문($$...$$, $tag$...$tag$)을 제거해 세미콜론 분리를 안전하게 만든다.
+ * 함수 본문과 DO 블록 안의 세미콜론이 구문 경계로 잘못 잡히는 것을 막는다.
+ *
+ * 정규식 대신 선형 스캔을 쓴다. 역참조로 여는/닫는 태그를 맞추려 하면
+ * 태그가 없는 파일에서 백트래킹이 폭발한다.
+ */
+export function stripDollarQuoted(sql: string): string {
+  const OPENER = /\$[A-Za-z_]?\w*\$/y;
+  let out = "";
+  let i = 0;
+
+  while (i < sql.length) {
+    if (sql[i] !== "$") {
+      out += sql[i++];
+      continue;
+    }
+
+    OPENER.lastIndex = i;
+    const m = OPENER.exec(sql);
+    if (!m) {
+      out += sql[i++];
+      continue;
+    }
+
+    const tag = m[0];
+    const close = sql.indexOf(tag, i + tag.length);
+    if (close === -1) {
+      // 닫히지 않은 인용 — 남은 전부가 본문이다
+      out += " BODY ";
+      break;
+    }
+
+    out += " BODY ";
+    i = close + tag.length;
+  }
+
+  return out;
 }
 
 function loadEffectivePolicies(): Map<string, Policy> {
