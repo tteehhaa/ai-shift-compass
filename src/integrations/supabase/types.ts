@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -106,6 +131,122 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_events: {
+        Row: {
+          created_at: string
+          diagnosis_id: string | null
+          event_name: string
+          id: string
+          occurred_at: string
+          props: Json
+          screen: string
+          session_id: string
+          target: string | null
+        }
+        Insert: {
+          created_at?: string
+          diagnosis_id?: string | null
+          event_name: string
+          id?: string
+          occurred_at?: string
+          props?: Json
+          screen: string
+          session_id: string
+          target?: string | null
+        }
+        Update: {
+          created_at?: string
+          diagnosis_id?: string | null
+          event_name?: string
+          id?: string
+          occurred_at?: string
+          props?: Json
+          screen?: string
+          session_id?: string
+          target?: string | null
+        }
+        Relationships: []
+      }
+      challenge_feedback: {
+        Row: {
+          created_at: string
+          diagnosis_id: string | null
+          id: string
+          reason: string
+          type_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          diagnosis_id?: string | null
+          id?: string
+          reason: string
+          type_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          diagnosis_id?: string | null
+          id?: string
+          reason?: string
+          type_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_feedback_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnoses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnoses: {
+        Row: {
+          created_at: string
+          email: string | null
+          exposure_index: number
+          id: string
+          occupation_id: string
+          savable_weekly_hours: number
+          summary: Json
+          tasks: Json
+          total_weekly_hours: number
+          track: string
+          type_id: number
+          type_name: string
+          usage_index: number
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          exposure_index: number
+          id: string
+          occupation_id: string
+          savable_weekly_hours: number
+          summary?: Json
+          tasks?: Json
+          total_weekly_hours: number
+          track: string
+          type_id: number
+          type_name: string
+          usage_index: number
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          exposure_index?: number
+          id?: string
+          occupation_id?: string
+          savable_weekly_hours?: number
+          summary?: Json
+          tasks?: Json
+          total_weekly_hours?: number
+          track?: string
+          type_id?: number
+          type_name?: string
+          usage_index?: number
+        }
+        Relationships: []
+      }
       diagnosis_results: {
         Row: {
           created_at: string
@@ -139,26 +280,156 @@ export type Database = {
       email_subscribers: {
         Row: {
           created_at: string
+          diagnosis_id: string | null
           email: string
           id: string
           mbti: string | null
+          occupation_id: string | null
           shift_index: number | null
+          type_id: number | null
+          wants_recheck: boolean
+          wants_weekly: boolean
+        }
+        Insert: {
+          created_at?: string
+          diagnosis_id?: string | null
+          email: string
+          id?: string
+          mbti?: string | null
+          occupation_id?: string | null
+          shift_index?: number | null
+          type_id?: number | null
+          wants_recheck?: boolean
+          wants_weekly?: boolean
+        }
+        Update: {
+          created_at?: string
+          diagnosis_id?: string | null
+          email?: string
+          id?: string
+          mbti?: string | null
+          occupation_id?: string | null
+          shift_index?: number | null
+          type_id?: number | null
+          wants_recheck?: boolean
+          wants_weekly?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_subscribers_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnoses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      occupation_misses: {
+        Row: {
+          count: number
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          count?: number
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          count?: number
+          term?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pairing_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          pairing_id: string
+          role: string
+          sent_at: string | null
+          status: string
         }
         Insert: {
           created_at?: string
           email: string
           id?: string
-          mbti?: string | null
-          shift_index?: number | null
+          pairing_id: string
+          role: string
+          sent_at?: string | null
+          status?: string
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
-          mbti?: string | null
-          shift_index?: number | null
+          pairing_id?: string
+          role?: string
+          sent_at?: string | null
+          status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pairing_emails_pairing_id_fkey"
+            columns: ["pairing_id"]
+            isOneToOne: false
+            referencedRelation: "pairings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pairings: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          invitee_diagnosis_id: string | null
+          invitee_email: string | null
+          inviter_diagnosis_id: string
+          inviter_email: string
+          reminded_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          invitee_diagnosis_id?: string | null
+          invitee_email?: string | null
+          inviter_diagnosis_id: string
+          inviter_email: string
+          reminded_at?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          invitee_diagnosis_id?: string | null
+          invitee_email?: string | null
+          inviter_diagnosis_id?: string
+          inviter_email?: string
+          reminded_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pairings_invitee_diagnosis_id_fkey"
+            columns: ["invitee_diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnoses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pairings_inviter_diagnosis_id_fkey"
+            columns: ["inviter_diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnoses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shared_results: {
         Row: {
@@ -204,12 +475,99 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_pairing: {
+        Args: { _diagnosis_id: string; _email: string; _pairing_id: string }
+        Returns: boolean
+      }
+      admin_challenge_stats: { Args: never; Returns: Json }
+      admin_diagnosis_rankings: { Args: never; Returns: Json }
+      admin_screen_funnel: {
+        Args: never
+        Returns: {
+          drop_off_rate: number
+          entered: number
+          exited: number
+          screen: string
+        }[]
+      }
+      attach_diagnosis_email: {
+        Args: { _email: string; _id: string }
+        Returns: boolean
+      }
+      attach_email_to_diagnosis: {
+        Args: { _email: string; _id: string }
+        Returns: boolean
+      }
+      bump_activity_ranking: {
+        Args: {
+          _activity_name: string
+          _category: string
+          _replacement_level: string
+          _replacement_score: number
+        }
+        Returns: undefined
+      }
+      bump_occupation_miss: { Args: { _term: string }; Returns: undefined }
+      create_pairing: {
+        Args: { _diagnosis_id: string; _email: string }
+        Returns: string
+      }
+      get_pairing: {
+        Args: { _id: string }
+        Returns: {
+          created_at: string
+          id: string
+          invitee_summary: Json
+          inviter_summary: Json
+          status: string
+        }[]
+      }
+      get_public_diagnosis: {
+        Args: { _id: string }
+        Returns: {
+          created_at: string
+          id: string
+          summary: Json
+          track: string
+          type_id: number
+          type_name: string
+        }[]
+      }
+      get_shared_result: {
+        Args: { _id: string }
+        Returns: {
+          created_at: string
+          id: string
+          mbti: string
+          result_data: Json
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      record_challenge: {
+        Args: { _diagnosis_id: string; _reason: string; _type_id: number }
+        Returns: undefined
+      }
+      save_diagnosis: {
+        Args: {
+          _exposure: number
+          _id: string
+          _occupation_id: string
+          _savable: number
+          _summary: Json
+          _tasks: Json
+          _total: number
+          _track: string
+          _type_id: number
+          _type_name: string
+          _usage: number
+        }
+        Returns: string
       }
     }
     Enums: {
@@ -229,12 +587,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -258,11 +616,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -283,11 +641,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -308,11 +666,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -325,11 +683,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -339,6 +697,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "user"],

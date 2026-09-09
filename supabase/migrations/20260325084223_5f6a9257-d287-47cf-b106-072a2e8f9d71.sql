@@ -19,5 +19,22 @@ CREATE POLICY "Admins can insert config" ON public.algorithm_config FOR INSERT T
 CREATE POLICY "Admins can delete config" ON public.algorithm_config FOR DELETE TO authenticated USING (has_role(auth.uid(), 'admin'::app_role));
 
 -- Enable pg_cron and pg_net for scheduled jobs
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+--
+-- 실제로 스케줄된 잡은 아직 없다(cron.schedule 호출 없음). 새 프로젝트에서는
+-- 확장 설치 권한이 없어 실패할 수 있는데, 그 때문에 마이그레이션 전체가
+-- 멈추면 안 되므로 실패를 경고로 흘린다. 잡을 실제로 걸 때 다시 확인할 것.
+DO $ext$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron 설치 건너뜀: %', SQLERRM;
+END
+$ext$;
+
+DO $ext$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_net 설치 건너뜀: %', SQLERRM;
+END
+$ext$;

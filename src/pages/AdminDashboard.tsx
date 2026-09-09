@@ -1,73 +1,140 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Users, BarChart3, Share2, Trophy, TrendingUp, Trash2, Star, Settings2 } from "lucide-react";
-import { toast } from "sonner";
-import CountUp from "@/components/CountUp";
+import { OCCUPATIONS, TASKS } from "@/lib/task-matrix";
+import { typeById } from "@/lib/shift-types";
 
-interface RankingItem {
-  activity_name: string;
-  replacement_score: number;
-  replacement_level: string;
-  category: string;
-  count: number;
+/**
+ * ADM. 관리자 — 화면정의 ADM
+ *
+ * 요청된 순위 지표 6종 + 운영 지표를 한 화면에 놓는다.
+ * 집계는 전부 관리자 전용 RPC 가 서버에서 계산한다. 원시 행은 내려오지 않는다.
+ *
+ * v1 의 가중치 최적화 UI 는 걷어냈다 — 그 계수는 삭제된 v1 엔진의 것이다 (PRD §9).
+ */
+
+interface Rankings {
+  types: Array<{ type_id: number; type_name: string; count: number }>;
+  occupations: Array<{ occupation_id: string; count: number }>;
+  tasks: Array<{ task_id: string; count: number }>;
+  delegable: Array<{ task_id: string; count: number }>;
+  unused: Array<{ task_id: string; none_ratio: number; total: number }>;
+  misses: Array<{ term: string; count: number }>;
+  tracks: Array<{ track: string; count: number }>;
+  averages: {
+    total: number;
+    avg_tasks: number | null;
+    avg_hours: number | null;
+    avg_savable: number | null;
+    email_rate: number | null;
+  };
+  pairing: { invited: number; accepted: number; rate: number | null };
 }
 
-interface Subscriber {
-  id: string;
-  email: string;
-  mbti: string | null;
-  shift_index: number | null;
-  created_at: string;
+interface FunnelRow {
+  screen: string;
+  entered: number;
+  exited: number;
+  drop_off_rate: number;
 }
 
-interface SharedResult {
-  id: string;
-  mbti: string;
-  created_at: string;
+interface ChallengeStats {
+  total: number;
+  diagnoses: number;
+  by_reason: Array<{ reason: string; count: number }>;
+  by_type: Array<{ type_id: number; count: number }>;
 }
 
-interface FeedbackItem {
-  id: string;
-  diagnosis_id: string | null;
-  accuracy_score: number;
-  comment: string | null;
-  created_at: string;
+const SCREEN_NAMES: Record<string, string> = {
+  S0: "S0 랜딩",
+  S1: "S1 직종",
+  S2: "S2 업무·시간",
+  S4: "S4 목적",
+  S6: "S6 결과",
+  S7: "S7 공유",
+  S8: "S8 궁합",
+  S9: "S9 이메일",
+  E1: "E1 이탈 방지",
+  ADM: "관리자",
+};
+
+const REASON_NAMES: Record<string, string> = {
+  tasks: "업무 구성이 틀림",
+  hours: "시간이 틀림",
+  usage: "AI 사용 정도가 틀림",
+  name: "유형 이름이 안 맞음",
+};
+
+const taskLabel = (id: string) => TASKS[id]?.label ?? id;
+const occupationLabel = (id: string) => OCCUPATIONS.find((o) => o.id === id)?.label ?? id;
+
+function Bar({ value, max }: { value: number; max: number }) {
+  const width = max > 0 ? Math.max(2, (value / max) * 100) : 0;
+  return (
+    <div className="h-[3px] w-full bg-[var(--rule)] mt-1.5">
+      <div className="h-full bg-indigo" style={{ width: `${width}%` }} />
+    </div>
+  );
 }
 
-interface DiagnosisItem {
-  id: string;
-  email: string | null;
-  mbti: string;
-  shift_index: number;
-  created_at: string;
+function RankList({
+  title,
+  hint,
+  rows,
+}: {
+  title: string;
+  hint: string;
+  rows: Array<{ label: string; value: number; suffix?: string }>;
+}) {
+  const max = Math.max(...rows.map((r) => r.value), 0);
+  return (
+    <section className="rule-top pt-7">
+      <h3 className="text-base font-medium text-ink">{title}</h3>
+      <p className="text-xs text-faint mt-1">{hint}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-quiet mt-4">아직 데이터가 없습니다.</p>
+      ) : (
+        <ol className="mt-4 space-y-3">
+          {rows.slice(0, 12).map((r, i) => (
+            <li key={`${r.label}-${i}`}>
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-sm text-body">
+                  <span className="text-faint mr-2">{i + 1}</span>
+                  {r.label}
+                </span>
+                <span className="text-sm text-indigo flex-shrink-0">
+                  {r.value}
+                  {r.suffix ?? ""}
+                </span>
+              </div>
+              <Bar value={r.value} max={max} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
 }
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [rankings, setRankings] = useState<RankingItem[]>([]);
-  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [sharedResults, setSharedResults] = useState<SharedResult[]>([]);
-  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
-  const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
-  const [algorithmConfigs, setAlgorithmConfigs] = useState<{ config_key: string; config_value: number; updated_at: string; updated_by: string }[]>([]);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [optimizerResult, setOptimizerResult] = useState<any>(null);
-  const [adminMemo, setAdminMemo] = useState(() => localStorage.getItem("admin_weights_memo") || "");
-  const [activeTab, setActiveTab] = useState<"overview" | "rankings" | "subscribers" | "shares" | "feedback" | "optimization">("overview");
+  const [rankings, setRankings] = useState<Rankings | null>(null);
+  const [funnel, setFunnel] = useState<FunnelRow[]>([]);
+  const [challenge, setChallenge] = useState<ChallengeStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    checkAdminAndLoad();
-  }, []);
-
-  const checkAdminAndLoad = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+  const load = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       navigate("/admin");
       return;
     }
 
+    // 클라이언트 가드. 우회하더라도 아래 RPC 들이 DB 단에서 has_role() 을 다시 본다.
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -81,669 +148,181 @@ export default function AdminDashboard() {
       return;
     }
 
-    const [rankingsRes, subscribersRes, sharesRes, feedbackRes, diagnosisRes, configRes] = await Promise.all([
-      supabase.from("activity_rankings").select("*").order("count", { ascending: false }),
-      supabase.from("email_subscribers").select("*").order("created_at", { ascending: false }),
-      supabase.from("shared_results").select("id, mbti, created_at").order("created_at", { ascending: false }),
-      supabase.from("accuracy_feedback" as any).select("*").order("created_at", { ascending: false }),
-      supabase.from("diagnosis_results" as any).select("id, email, mbti, shift_index, created_at").order("created_at", { ascending: false }),
-      supabase.from("algorithm_config" as any).select("config_key, config_value, updated_at, updated_by").order("config_key"),
+    const [r, f, c] = await Promise.all([
+      supabase.rpc("admin_diagnosis_rankings"),
+      supabase.rpc("admin_screen_funnel"),
+      supabase.rpc("admin_challenge_stats"),
     ]);
 
-    if (rankingsRes.data) setRankings(rankingsRes.data);
-    if (subscribersRes.data) setSubscribers(subscribersRes.data);
-    if (sharesRes.data) setSharedResults(sharesRes.data);
-    if (feedbackRes.data) setFeedbacks(feedbackRes.data as any[]);
-    if (diagnosisRes.data) setDiagnoses(diagnosisRes.data as any[]);
-    if (configRes.data) setAlgorithmConfigs(configRes.data as any[]);
+    if (r.error) setError(r.error.message);
+    if (r.data) setRankings(r.data as unknown as Rankings);
+    if (f.data) setFunnel(f.data as FunnelRow[]);
+    if (c.data) setChallenge(c.data as unknown as ChallengeStats);
     setLoading(false);
-  };
+  }, [navigate]);
 
-  const handleRunOptimizer = async () => {
-    setIsOptimizing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("optimize-weights", {
-        body: { trigger: "manual" },
-      });
-      if (error) throw error;
-      setOptimizerResult(data);
-      toast.success(`최적화 완료: ${data.adjustmentsApplied || 0}건 조정`);
-      const { data: newConfig } = await supabase.from("algorithm_config" as any).select("config_key, config_value, updated_at, updated_by").order("config_key");
-      if (newConfig) setAlgorithmConfigs(newConfig as any[]);
-    } catch (e) {
-      toast.error("최적화 실행 실패");
-      console.error(e);
-    } finally {
-      setIsOptimizing(false);
-    }
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const handleSaveMemo = (value: string) => {
-    setAdminMemo(value);
-    localStorage.setItem("admin_weights_memo", value);
-  };
-
-  const handleLogout = async () => {
+  const signOut = async () => {
     await supabase.auth.signOut();
     navigate("/admin");
   };
 
-  const handleDeleteRanking = async (activityName: string) => {
-    if (!confirm(`"${activityName}" 항목을 삭제하시겠습니까?`)) return;
-    const { error } = await supabase.from("activity_rankings").delete().eq("activity_name", activityName);
-    if (error) { toast.error("삭제 실패"); return; }
-    setRankings((prev) => prev.filter((r) => r.activity_name !== activityName));
-    toast.success("삭제되었습니다");
-  };
-
-  const handleDeleteSubscriber = async (id: string) => {
-    if (!confirm("이 구독자를 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from("email_subscribers").delete().eq("id", id);
-    if (error) { toast.error("삭제 실패"); return; }
-    setSubscribers((prev) => prev.filter((s) => s.id !== id));
-    toast.success("삭제되었습니다");
-  };
-
-  const handleDeleteShare = async (id: string) => {
-    if (!confirm("이 공유 결과를 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from("shared_results").delete().eq("id", id);
-    if (error) { toast.error("삭제 실패"); return; }
-    setSharedResults((prev) => prev.filter((s) => s.id !== id));
-    toast.success("삭제되었습니다");
-  };
-
-  const handleDeleteFeedback = async (id: string) => {
-    if (!confirm("이 피드백을 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from("accuracy_feedback" as any).delete().eq("id", id);
-    if (error) { toast.error("삭제 실패"); return; }
-    setFeedbacks((prev) => prev.filter((f) => f.id !== id));
-    toast.success("삭제되었습니다");
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">로딩 중...</p>
-      </div>
-    );
-  }
-
-  const tabs = [
-    { key: "overview" as const, label: "개요", icon: BarChart3 },
-    { key: "rankings" as const, label: "업무 랭킹", icon: Trophy },
-    { key: "subscribers" as const, label: "구독자", icon: Users },
-    { key: "shares" as const, label: "공유 결과", icon: Share2 },
-    { key: "feedback" as const, label: "피드백", icon: Star },
-    { key: "optimization" as const, label: "가중치 최적화", icon: Settings2 },
-  ];
-
-  // Stats
-  const totalSubscribers = subscribers.length;
-  const totalShares = sharedResults.length;
-  const totalRankingEntries = rankings.reduce((s, r) => s + r.count, 0);
-  const avgShiftIndex = subscribers.length
-    ? Math.round(subscribers.filter(s => s.shift_index).reduce((s, sub) => s + (sub.shift_index || 0), 0) / subscribers.filter(s => s.shift_index).length)
-    : 0;
-
-  // Feedback stats
-  const avgFeedbackScore = feedbacks.length
-    ? (feedbacks.reduce((s, f) => s + f.accuracy_score, 0) / feedbacks.length).toFixed(1)
-    : "N/A";
-  const feedbackDistribution = [1, 2, 3, 4, 5].map(score => ({
-    score,
-    count: feedbacks.filter(f => f.accuracy_score === score).length,
-  }));
-
-  // MBTI distribution
-  const mbtiCounts: Record<string, number> = {};
-  [...subscribers, ...sharedResults].forEach((item) => {
-    if (item.mbti && item.mbti !== "UNKNOWN") {
-      mbtiCounts[item.mbti] = (mbtiCounts[item.mbti] || 0) + 1;
-    }
-  });
-  const topMBTIs = Object.entries(mbtiCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
-  // Weight optimization analysis — now works without feedback too
-  const computeOptimizationInsights = () => {
-    const hasFeedback = feedbacks.length >= 1;
-    const hasDiagnoses = diagnoses.length >= 1;
-
-    if (!hasFeedback && !hasDiagnoses) return null;
-
-    const lowScoreFeedbacks = feedbacks.filter(f => f.accuracy_score <= 2);
-    const highScoreFeedbacks = feedbacks.filter(f => f.accuracy_score >= 4);
-    const totalFeedbacks = feedbacks.length;
-
-    const satisfactionRate = totalFeedbacks > 0
-      ? Math.round((highScoreFeedbacks.length / totalFeedbacks) * 100)
+  const avg = rankings?.averages;
+  const trackA = rankings?.tracks.find((t) => t.track === "A")?.count ?? 0;
+  const trackB = rankings?.tracks.find((t) => t.track === "B")?.count ?? 0;
+  const accuracyRate =
+    challenge && challenge.diagnoses > 0
+      ? Math.round((1 - challenge.total / challenge.diagnoses) * 1000) / 10
       : null;
-
-    // Trend
-    let recentAvg = 0, olderAvg = 0, trend = 0;
-    if (totalFeedbacks > 0) {
-      const sorted = [...feedbacks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      const recentHalf = sorted.slice(0, Math.ceil(sorted.length / 2));
-      const olderHalf = sorted.slice(Math.ceil(sorted.length / 2));
-      recentAvg = recentHalf.reduce((s, f) => s + f.accuracy_score, 0) / recentHalf.length;
-      olderAvg = olderHalf.length ? olderHalf.reduce((s, f) => s + f.accuracy_score, 0) / olderHalf.length : recentAvg;
-      trend = recentAvg - olderAvg;
-    }
-
-    // Diagnosis stats
-    const diagnosisAvgShift = diagnoses.length > 0
-      ? Math.round(diagnoses.reduce((s, d) => s + d.shift_index, 0) / diagnoses.length)
-      : 0;
-    const withEmail = diagnoses.filter(d => d.email).length;
-    const withoutEmail = diagnoses.length - withEmail;
-
-    const suggestions: string[] = [];
-
-    // Feedback-based suggestions
-    if (totalFeedbacks > 0) {
-      if (satisfactionRate !== null && satisfactionRate < 50) {
-        suggestions.push("⚠️ 만족도 50% 미만. 전문 업무 대체 점수를 5~10% 하향 조정 권장.");
-      } else if (satisfactionRate !== null && satisfactionRate < 70) {
-        suggestions.push("📊 보통 만족도. 도파민 가중치(1.2→1.1) 완화를 검토하세요.");
-      } else if (satisfactionRate !== null) {
-        suggestions.push("✅ 높은 만족도. 현재 가중치 유지 권장.");
-      }
-
-      if (lowScoreFeedbacks.length > 0) {
-        const comments = lowScoreFeedbacks.filter(f => f.comment).slice(0, 3).map(f => f.comment);
-        if (comments.length > 0) suggestions.push(`💬 낮은 점수 의견: "${comments.join('", "')}"`);
-      }
-
-      if (trend > 0.3) suggestions.push("📈 최근 점수 상승 추세. 올바른 방향.");
-      else if (trend < -0.3) suggestions.push("📉 최근 점수 하락 추세. 가중치 재검토 필요.");
-    }
-
-    // Data-based suggestions (피드백 없어도 동작)
-    if (diagnoses.length > 0) {
-      suggestions.push(`📋 총 ${diagnoses.length}건 진단 데이터 (이메일 O: ${withEmail}, 익명: ${withoutEmail})`);
-      suggestions.push(`📊 평균 시프트 지수: ${diagnosisAvgShift}%`);
-
-      if (diagnosisAvgShift > 70) {
-        suggestions.push("🔥 시프트 지수가 높음. 사용자들의 업무가 AI 대체 가능성이 높은 구조입니다.");
-      } else if (diagnosisAvgShift < 30 && diagnosisAvgShift > 0) {
-        suggestions.push("🛡️ 시프트 지수가 낮음. 전문 업무 가중치를 하향하면 체감 정확도가 올라갈 수 있습니다.");
-      }
-    }
-
-    return {
-      satisfactionRate,
-      recentAvg: totalFeedbacks > 0 ? recentAvg.toFixed(1) : "N/A",
-      olderAvg: totalFeedbacks > 0 ? olderAvg.toFixed(1) : "N/A",
-      trend: totalFeedbacks > 0 ? (trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2)) : "N/A",
-      suggestions,
-      lowCount: lowScoreFeedbacks.length,
-      highCount: highScoreFeedbacks.length,
-      totalDiagnoses: diagnoses.length,
-      diagnosisAvgShift,
-      withEmail,
-      withoutEmail,
-    };
-  };
-
-  const optimizationData = computeOptimizationInsights();
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border/50">
-        <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-cream border-b border-rule">
+        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-semibold text-foreground">Admin Dashboard</h1>
-            <p className="text-[11px] text-muted-foreground">AI Life Shift 관리자</p>
+            <h1 className="text-sm font-semibold text-ink">관리자</h1>
+            <p className="text-[11px] text-faint">응답 통계 · 순위</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
+          <button onClick={signOut} className="inline-flex items-center gap-1.5 text-xs text-quiet hover:text-ink">
+            <LogOut className="w-3.5 h-3.5" />
             로그아웃
           </button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-5 py-8 space-y-8">
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {tabs.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                activeTab === key
-                  ? "bg-foreground text-background"
-                  : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Overview Tab */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: "이메일 구독자", value: totalSubscribers, icon: Users, color: "text-blue-500" },
-                { label: "공유 횟수", value: totalShares, icon: Share2, color: "text-green-500" },
-                { label: "활동 입력 수", value: totalRankingEntries, icon: TrendingUp, color: "text-amber-500" },
-                { label: "평균 시프트 지수", value: avgShiftIndex, suffix: "%", icon: BarChart3, color: "text-purple-500" },
-              ].map(({ label, value, suffix, icon: Icon, color }) => (
-                <div key={label} className="glass-card rounded-2xl p-5 text-center">
-                  <Icon className={`w-5 h-5 mx-auto mb-2 ${color}`} />
-                  <p className="text-2xl font-bold text-foreground">
-                    <CountUp end={value} suffix={suffix || ""} />
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Feedback summary in overview */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="glass-card rounded-2xl p-5 text-center">
-                <Star className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                <p className="text-2xl font-bold text-foreground">{avgFeedbackScore}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">평균 정확도 점수</p>
-              </div>
-              <div className="glass-card rounded-2xl p-5 text-center">
-                <Star className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                <p className="text-2xl font-bold text-foreground">{feedbacks.length}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">총 피드백 수</p>
-              </div>
-            </div>
-
-            {topMBTIs.length > 0 && (
-              <div className="glass-card rounded-2xl p-6">
-                <h3 className="text-sm font-semibold text-foreground mb-4">MBTI 분포 TOP 5</h3>
-                <div className="space-y-3">
-                  {topMBTIs.map(([mbti, count]) => {
-                    const maxCount = topMBTIs[0][1] as number;
-                    return (
-                      <div key={mbti} className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-foreground w-12">{mbti}</span>
-                        <div className="flex-1 h-6 bg-secondary/50 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-foreground/20 rounded-full transition-all"
-                            style={{ width: `${(count / maxCount) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="glass-card rounded-2xl p-6">
-              <h3 className="text-sm font-semibold text-foreground mb-4">AI 대체 업무 TOP 5</h3>
-              <div className="space-y-2">
-                {rankings.slice(0, 5).map((item, i) => (
-                  <div key={item.activity_name} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50">
-                    <span className="text-sm font-bold text-muted-foreground w-6">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{item.activity_name}</p>
-                      <p className="text-[11px] text-muted-foreground">{item.category}</p>
-                    </div>
-                    <span className="text-sm font-bold text-foreground">{item.count}회</span>
-                    <span className="text-xs font-medium text-muted-foreground">{item.replacement_score}%</span>
+      <main className="max-w-3xl mx-auto px-5 pb-16">
+        {loading ? (
+          <p className="pt-16 text-sm text-quiet">불러오는 중…</p>
+        ) : error ? (
+          <p className="pt-16 text-sm text-body">집계를 불러오지 못했습니다: {error}</p>
+        ) : (
+          <>
+            {/* 운영 지표 */}
+            <section className="pt-8">
+              <h2 className="font-voice text-2xl text-ink">한눈에</h2>
+              <dl className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-y-6 gap-x-4">
+                {[
+                  { k: "진단 수", v: avg?.total ?? 0 },
+                  { k: "평균 선택 업무", v: avg?.avg_tasks ?? 0, s: "개" },
+                  { k: "평균 주당 시간", v: avg?.avg_hours ?? 0, s: "h" },
+                  { k: "평균 절감 추정", v: avg?.avg_savable ?? 0, s: "h" },
+                  { k: "이메일 수집률", v: avg?.email_rate ?? 0, s: "%" },
+                  { k: "A / B 트랙", v: `${trackA} / ${trackB}` },
+                  { k: "궁합 초대", v: rankings?.pairing.invited ?? 0 },
+                  { k: "궁합 완주", v: rankings?.pairing.accepted ?? 0 },
+                  { k: "초대→완주 전환율", v: rankings?.pairing.rate ?? 0, s: "%" },
+                  { k: '"맞다" 추정 비율', v: accuracyRate ?? "—", s: accuracyRate === null ? "" : "%" },
+                ].map((m) => (
+                  <div key={m.k}>
+                    <dt className="text-xs text-faint">{m.k}</dt>
+                    <dd className="font-voice text-2xl text-indigo mt-0.5">
+                      {m.v}
+                      {"s" in m && m.s ? <span className="text-sm ml-0.5">{m.s}</span> : null}
+                    </dd>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Rankings Tab */}
-        {activeTab === "rankings" && (
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="p-5 border-b border-border/30">
-              <h3 className="text-sm font-semibold text-foreground">전체 AI 대체 업무 랭킹 ({rankings.length}개)</h3>
-            </div>
-            <div className="divide-y divide-border/30">
-              {rankings.map((item, i) => (
-                <div key={item.activity_name} className="flex items-center gap-4 px-5 py-3">
-                  <span className="text-sm font-bold text-muted-foreground w-8">{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{item.activity_name}</p>
-                    <p className="text-[11px] text-muted-foreground">{item.category} · {item.replacement_level}</p>
-                  </div>
-                  <span className="text-sm font-bold text-foreground">{item.count}회</span>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.replacement_score}%</span>
-                  <button onClick={() => handleDeleteRanking(item.activity_name)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
-              ))}
-              {rankings.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">아직 데이터가 없습니다.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Subscribers Tab */}
-        {activeTab === "subscribers" && (
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="p-5 border-b border-border/30">
-              <h3 className="text-sm font-semibold text-foreground">이메일 구독자 ({subscribers.length}명)</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/30 text-muted-foreground">
-                     <th className="text-left px-5 py-3 font-medium">이메일</th>
-                     <th className="text-left px-5 py-3 font-medium">MBTI</th>
-                     <th className="text-left px-5 py-3 font-medium">시프트 지수</th>
-                     <th className="text-left px-5 py-3 font-medium">가입일</th>
-                     <th className="text-right px-5 py-3 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/30">
-                  {subscribers.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-accent/50 transition-colors">
-                      <td className="px-5 py-3 text-foreground">{sub.email}</td>
-                      <td className="px-5 py-3">{sub.mbti || "-"}</td>
-                      <td className="px-5 py-3">{sub.shift_index ? `${sub.shift_index}%` : "-"}</td>
-                      <td className="px-5 py-3 text-muted-foreground">
-                        {new Date(sub.created_at).toLocaleDateString("ko-KR")}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => handleDeleteSubscriber(sub.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {subscribers.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">아직 구독자가 없습니다.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Shares Tab */}
-        {activeTab === "shares" && (
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="p-5 border-b border-border/30">
-              <h3 className="text-sm font-semibold text-foreground">공유된 결과 ({sharedResults.length}건)</h3>
-            </div>
-            <div className="divide-y divide-border/30">
-              {sharedResults.map((share) => (
-                <div key={share.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm text-foreground font-medium">{share.mbti || "UNKNOWN"}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {new Date(share.created_at).toLocaleString("ko-KR")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-muted-foreground font-mono">{share.id.slice(0, 8)}...</span>
-                    <button onClick={() => handleDeleteShare(share.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                </div>
-              ))}
-              {sharedResults.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">아직 공유된 결과가 없습니다.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Feedback Tab */}
-        {activeTab === "feedback" && (
-          <div className="space-y-6">
-            {/* Feedback Stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="glass-card rounded-2xl p-5 text-center">
-                <p className="text-2xl font-bold text-foreground">{avgFeedbackScore}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">평균 점수</p>
-              </div>
-              <div className="glass-card rounded-2xl p-5 text-center">
-                <p className="text-2xl font-bold text-foreground">{feedbacks.length}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">총 피드백</p>
-              </div>
-              <div className="glass-card rounded-2xl p-5 text-center">
-                <p className="text-2xl font-bold text-foreground">{diagnoses.length}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">총 진단 수</p>
-              </div>
-            </div>
-
-            {/* Score Distribution */}
-            <div className="glass-card rounded-2xl p-6">
-              <h3 className="text-sm font-semibold text-foreground mb-4">점수 분포</h3>
-              <div className="space-y-2">
-                {feedbackDistribution.map(({ score, count }) => {
-                  const maxCount = Math.max(...feedbackDistribution.map(d => d.count), 1);
-                  return (
-                    <div key={score} className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 w-16">
-                        {Array.from({ length: score }).map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        ))}
-                      </div>
-                      <div className="flex-1 h-5 bg-secondary/50 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-400/50 rounded-full transition-all"
-                          style={{ width: `${(count / maxCount) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Recent Feedbacks */}
-            <div className="glass-card rounded-2xl overflow-hidden">
-              <div className="p-5 border-b border-border/30">
-                <h3 className="text-sm font-semibold text-foreground">최근 피드백 ({feedbacks.length}건)</h3>
-              </div>
-              <div className="divide-y divide-border/30">
-                {feedbacks.slice(0, 50).map((fb) => (
-                  <div key={fb.id} className="flex items-center gap-4 px-5 py-3">
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {Array.from({ length: fb.accuracy_score }).map((_, i) => (
-                        <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      ))}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {fb.comment ? (
-                        <p className="text-sm text-foreground truncate">{fb.comment}</p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground italic">코멘트 없음</p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground">
-                        {new Date(fb.created_at).toLocaleString("ko-KR")}
-                      </p>
-                    </div>
-                    <button onClick={() => handleDeleteFeedback(fb.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-                {feedbacks.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-8">아직 피드백이 없습니다.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Optimization Tab */}
-        {activeTab === "optimization" && (
-          <div className="space-y-6">
-            <div className="glass-card rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Settings2 className="w-5 h-5 text-primary" />
-                  <h3 className="text-base font-semibold text-foreground">가중치 최적화 분석</h3>
-                </div>
-                <button
-                  onClick={handleRunOptimizer}
-                  disabled={isOptimizing}
-                  className="px-4 py-2 rounded-xl bg-foreground text-background text-xs font-medium transition-all hover:opacity-90 disabled:opacity-50"
-                >
-                  {isOptimizing ? "최적화 중..." : "🔄 수동 실행"}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                피드백 + 진단 데이터 통계를 모두 분석합니다. 데이터 1건부터 즉시 반영됩니다.
+              </dl>
+              <p className="text-xs text-faint mt-5 leading-relaxed">
+                초대→완주 전환율은 궁합의 최우선 지표입니다 (PRD 3.5). 급락하면 초대받은 쪽 이메일을 면제하는
+                안으로 되돌립니다.
               </p>
+            </section>
 
-              {/* Admin Memo */}
-              <div className="mb-6 p-4 rounded-xl bg-secondary/30 border border-border/30">
-                <h4 className="text-xs font-semibold text-foreground mb-2">📝 관리자 메모</h4>
-                <textarea
-                  value={adminMemo}
-                  onChange={(e) => handleSaveMemo(e.target.value)}
-                  placeholder="가중치 조정 근거, 관찰 내용, 다음 액션 등을 메모하세요..."
-                  className="w-full h-24 text-xs bg-background/50 border border-border/30 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">로컬 저장 (브라우저에만 보관)</p>
-              </div>
-
-              {/* Live Config from DB */}
-              {algorithmConfigs.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">📊 현재 DB 가중치 (실시간)</h4>
-                  <div className="space-y-1.5">
-                    {algorithmConfigs.map((cfg) => {
-                      const isReplacementScore = cfg.config_key.startsWith("replacement_score.");
-                      const maxVal = isReplacementScore ? 100 : cfg.config_key === "hourly_value" ? 15000 : 10;
-                      const barWidth = Math.min(100, (cfg.config_value / maxVal) * 100);
-                      return (
-                        <div key={cfg.config_key} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/30">
-                          <span className="text-xs w-48 truncate font-mono">{cfg.config_key}</span>
-                          <div className="flex-1 h-3 bg-secondary/50 rounded-full overflow-hidden">
-                            <div className="h-full bg-foreground/20 rounded-full" style={{ width: `${barWidth}%` }} />
-                          </div>
-                          <span className="text-xs font-mono text-muted-foreground w-16 text-right">{cfg.config_value}</span>
-                          {cfg.updated_by === "auto-optimizer" && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">자동</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2">
-                    마지막 업데이트: {algorithmConfigs[0]?.updated_at ? new Date(algorithmConfigs[0].updated_at).toLocaleString("ko-KR") : "-"}
-                  </p>
-                </div>
-              )}
-
-              {/* Optimizer Last Run Result */}
-              {optimizerResult && (
-                <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
-                  <h4 className="text-xs font-semibold text-foreground mb-2">🔄 마지막 실행 결과</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-foreground">{optimizerResult.totalDiagnoses || 0}</p>
-                      <p className="text-[10px] text-muted-foreground">진단 데이터</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-foreground">{optimizerResult.totalFeedbacks || 0}</p>
-                      <p className="text-[10px] text-muted-foreground">피드백</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-foreground">{optimizerResult.avgShiftIndex || 0}%</p>
-                      <p className="text-[10px] text-muted-foreground">평균 시프트</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-foreground">{optimizerResult.adjustmentsApplied || 0}</p>
-                      <p className="text-[10px] text-muted-foreground">조정 적용</p>
-                    </div>
-                  </div>
-                  {optimizerResult.adjustments?.length > 0 && (
-                    <div className="space-y-1">
-                      {optimizerResult.adjustments.map((adj: any, i: number) => (
-                        <div key={i} className="text-xs text-foreground flex items-center gap-2">
-                          <span className="font-mono">{adj.key}</span>
-                          <span className="text-muted-foreground">{adj.oldValue} → {adj.newValue}</span>
-                          <span className="text-[10px] text-muted-foreground">({adj.reason})</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {optimizerResult.dataInsights?.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold text-foreground mb-1">📈 카테고리 인사이트</p>
-                      {optimizerResult.dataInsights.map((ins: any, i: number) => (
-                        <div key={i} className="text-xs text-muted-foreground flex gap-2">
-                          <span className="font-medium text-foreground">{ins.category}</span>
-                          <span>{ins.frequency}회 · 평균 {ins.avgMinutes}분</span>
-                          <span className="text-[10px]">— {ins.suggestion}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!optimizationData ? (
-                <div className="p-6 rounded-2xl bg-secondary/50 text-center">
-                  <p className="text-sm text-muted-foreground">아직 데이터가 없습니다. 진단을 1회 이상 실행하면 분석이 시작됩니다.</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.totalDiagnoses}</p>
-                      <p className="text-[10px] text-muted-foreground">총 진단 수</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.diagnosisAvgShift}%</p>
-                      <p className="text-[10px] text-muted-foreground">평균 시프트</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-xl font-bold text-foreground">{optimizationData.satisfactionRate !== null ? `${optimizationData.satisfactionRate}%` : "—"}</p>
-                      <p className="text-[10px] text-muted-foreground">피드백 만족도</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className={`text-xl font-bold ${optimizationData.trend !== "N/A" && optimizationData.trend.startsWith('+') ? 'text-green-600' : optimizationData.trend !== "N/A" && optimizationData.trend.startsWith('-') ? 'text-red-500' : 'text-foreground'}`}>
-                        {optimizationData.trend}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">피드백 추이</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-lg font-bold text-foreground">{optimizationData.withEmail}</p>
-                      <p className="text-[10px] text-muted-foreground">이메일 등록</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-lg font-bold text-foreground">{optimizationData.withoutEmail}</p>
-                      <p className="text-[10px] text-muted-foreground">익명 데이터</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-3">💡 조정 제안</h4>
-                    <div className="space-y-2">
-                      {optimizationData.suggestions.map((s, i) => (
-                        <div key={i} className="p-4 rounded-xl bg-secondary/30 border border-border/30">
-                          <p className="text-sm text-foreground leading-relaxed">{s}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-secondary/30 border border-border/30">
-                    <p className="text-xs text-foreground leading-relaxed">
-                      <strong>⚡ 자가 진화 모드:</strong> 피드백이 없어도 진단 데이터 통계(카테고리 빈도, 시프트 지수 분포)로 가중치를 제안합니다.
-                      수동 실행 시 Edge Function이 DB 데이터를 분석해 0.01 단위로 자동 조정합니다.
-                    </p>
-                  </div>
-                </div>
-              )}
+            {/* 순위 6종 — 화면정의 ADM */}
+            <div className="mt-8 space-y-8">
+              <RankList
+                title="유형별 분포"
+                hint="한쪽 편중이면 계산 로직 재조정 신호"
+                rows={(rankings?.types ?? []).map((t) => ({
+                  label: `${t.type_name} (${typeById(t.type_id)?.quadrantLabel ?? ""})`,
+                  value: t.count,
+                }))}
+              />
+              <RankList
+                title="직종별 참여"
+                hint="실제로 누가 오는지 · 프리셋 우선순위"
+                rows={(rankings?.occupations ?? []).map((o) => ({
+                  label: occupationLabel(o.occupation_id),
+                  value: o.count,
+                }))}
+              />
+              <RankList
+                title="가장 많이 체크된 업무"
+                hint="공통 업무 파악"
+                rows={(rankings?.tasks ?? []).map((t) => ({ label: taskLabel(t.task_id), value: t.count }))}
+              />
+              <RankList
+                title='"맡길 일"로 판정된 업무'
+                hint="사람들의 다음 관심사 — 다들 손 떼고 싶어 하는 것"
+                rows={(rankings?.delegable ?? []).map((t) => ({
+                  label: taskLabel(t.task_id),
+                  value: t.count,
+                }))}
+              />
+              <RankList
+                title='AI "안 씀" 비율 상위 업무'
+                hint="미충족 수요 · 다음 제품의 힌트 (응답 3건 이상)"
+                rows={(rankings?.unused ?? []).map((t) => ({
+                  label: `${taskLabel(t.task_id)} (n=${t.total})`,
+                  value: t.none_ratio,
+                  suffix: "%",
+                }))}
+              />
+              <RankList
+                title="직종 미발견 검색어"
+                hint="프리셋에 추가할 직종"
+                rows={(rankings?.misses ?? []).map((m) => ({ label: m.term, value: m.count }))}
+              />
             </div>
-          </div>
+
+            {/* 화면별 이탈률 */}
+            <section className="rule-top pt-7 mt-8">
+              <h3 className="text-base font-medium text-ink">화면별 이탈률</h3>
+              <p className="text-xs text-faint mt-1">특히 S2 → S4 구간을 본다</p>
+              {funnel.length === 0 ? (
+                <p className="text-sm text-quiet mt-4">아직 데이터가 없습니다.</p>
+              ) : (
+                <table className="w-full mt-4 text-sm">
+                  <thead>
+                    <tr className="text-xs text-faint text-left">
+                      <th className="font-normal pb-2">화면</th>
+                      <th className="font-normal pb-2 text-right">진입</th>
+                      <th className="font-normal pb-2 text-right">이탈</th>
+                      <th className="font-normal pb-2 text-right">이탈률</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {funnel.map((row) => (
+                      <tr key={row.screen} className="border-t border-rule">
+                        <td className="py-2 text-body">{SCREEN_NAMES[row.screen] ?? row.screen}</td>
+                        <td className="py-2 text-right text-body">{row.entered}</td>
+                        <td className="py-2 text-right text-body">{row.exited}</td>
+                        <td className="py-2 text-right text-indigo">{row.drop_off_rate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            {/* F2 반박 */}
+            <RankList
+              title="반박 사유"
+              hint='"이거 안 맞는데요" — 어느 축이 자주 틀리는가'
+              rows={(challenge?.by_reason ?? []).map((r) => ({
+                label: REASON_NAMES[r.reason] ?? r.reason,
+                value: r.count,
+              }))}
+            />
+
+            <p className="rule-top pt-5 mt-8 text-xs text-faint leading-relaxed">
+              모든 집계는 관리자 전용 RPC 가 서버에서 계산합니다. 개인이 입력한 업무명 원문은 애초에 저장되지
+              않습니다 — 프리셋 id 만 남습니다.
+            </p>
+          </>
         )}
       </main>
     </div>

@@ -1,128 +1,129 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================================================
+   PRD 3.6 — 딥 인디고 단색 + 크림 배경, 종이 질감 레이아웃 (D7)
+
+   배경     크림      #F4F2EC
+   구분선            #DCD8CC  1px — 카드 대신 이것만 쓴다
+   메인     딥 인디고 #26215C  절감 시간 숫자 / "당신만 할 수 있는 일" / 버튼
+   보조              #534AB7  링크·보조 액션 텍스트
+   본문              #2C2C2A 제목 / #55524B 본문
+   흐린 텍스트        #8A857A 라벨 / #A9A497 캡션·수치
+
+   적용 원칙
+     · 색 블록(파스텔 배경 채우기)을 쓰지 않는다. 색은 텍스트와 버튼에만
+     · 강조는 색 면적이 아니라 글자 크기·굵기·여백으로
+     · 유형 이름은 세리프(--font-voice)로 뽑아 리포트 느낌을 만든다
+     · 네온·다크·그라데이션 금지
+   =========================================================================== */
+
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 220 20% 10%;
+    /* ── PRD 3.6 원색 (hex 그대로 두어 문서와 대조하기 쉽게) ── */
+    --cream:        #F4F2EC;
+    --rule:         #DCD8CC;
+    --indigo:       #26215C;
+    --indigo-soft:  #534AB7;
+    --ink:          #2C2C2A;
+    --body:         #55524B;
+    --quiet:        #8A857A;
+    --faint:        #A9A497;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    /* ── shadcn/ui 토큰을 위 팔레트로 재지정 ── */
+    --background: 45 27% 94%;   /* 크림 */
+    --foreground: 60 2% 17%;    /* 본문 제목 */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --card: 45 27% 94%;         /* 카드 없음 — 배경과 동일 */
+    --card-foreground: 60 2% 17%;
 
-    --primary: 220 60% 15%;
-    --primary-foreground: 0 0% 98%;
+    --popover: 45 27% 94%;
+    --popover-foreground: 60 2% 17%;
 
-    --secondary: 220 10% 94%;
-    --secondary-foreground: 220 20% 25%;
+    --primary: 245 47% 25%;     /* 딥 인디고 */
+    --primary-foreground: 45 27% 94%;
 
-    --muted: 220 10% 96%;
-    --muted-foreground: 220 10% 50%;
+    --secondary: 45 19% 88%;
+    --secondary-foreground: 42 6% 31%;
 
-    --accent: 220 10% 92%;
-    --accent-foreground: 220 20% 15%;
+    --muted: 45 19% 90%;
+    --muted-foreground: 41 6% 51%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --accent: 45 19% 90%;
+    --accent-foreground: 42 6% 31%;
 
-    --border: 220 10% 90%;
-    --input: 220 10% 90%;
-    --ring: 220 60% 15%;
+    /* 경고색은 파괴적 동작에만. 결과 화면에서는 쓰지 않는다 */
+    --destructive: 4 55% 42%;
+    --destructive-foreground: 45 27% 94%;
 
-    --radius: 0.75rem;
+    --border: 45 19% 83%;       /* 구분선 */
+    --input: 45 19% 83%;
+    --ring: 245 47% 25%;
 
-    /* Diagnostic colors */
-    --diagnostic-erosion: 0 72% 55%;
-    --diagnostic-gain: 215 80% 55%;
-    --diagnostic-human: 270 50% 58%;
-    --diagnostic-assist: 150 50% 45%;
+    /* 종이에는 둥근 카드가 없다 */
+    --radius: 0.125rem;
 
-    /* Glass effect */
-    --glass-bg: 0 0% 100% / 0.7;
-    --glass-border: 0 0% 100% / 0.3;
+    /* ── 진단 스펙트럼 ──
+       D4: "당신만 할 수 있는 일"은 딥 인디고, "맡겨도 되는 일"은 무채색.
+       강조가 강점 쪽에 남도록 색의 방향을 뒤집었다. */
+    --diagnostic-erosion: 41 6% 51%;   /* 맡겨도 되는 일 — 무채색 */
+    --diagnostic-mixed:   43 9% 63%;
+    --diagnostic-gain:    245 43% 50%;
+    --diagnostic-human:   245 47% 25%; /* 당신만 할 수 있는 일 — 딥 인디고 */
+    --diagnostic-assist:  43 9% 63%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 45 27% 94%;
+    --sidebar-foreground: 42 6% 31%;
+    --sidebar-primary: 245 47% 25%;
+    --sidebar-primary-foreground: 45 27% 94%;
+    --sidebar-accent: 45 19% 90%;
+    --sidebar-accent-foreground: 42 6% 31%;
+    --sidebar-border: 45 19% 83%;
+    --sidebar-ring: 245 47% 25%;
   }
 
-  .dark {
-    --background: 220 20% 5%;
-    --foreground: 0 0% 95%;
-    --card: 220 20% 8%;
-    --card-foreground: 0 0% 95%;
-    --popover: 220 20% 8%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 0% 95%;
-    --primary-foreground: 220 20% 5%;
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 220 15% 15%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 220 15% 18%;
-    --accent-foreground: 0 0% 95%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 95%;
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 0 0% 80%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+  /* D7: 다크 모드 없음. 인쇄된 리포트로 읽혀야 한다. */
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    color-scheme: light;
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+      'Malgun Gothic', 'Segoe UI', sans-serif;
   }
 }
 
 @layer utilities {
-  .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm;
+  /* 유형 이름 등 "목소리"가 필요한 곳 (PRD 3.6) */
+  .font-voice {
+    font-family: 'Noto Serif KR', 'Apple SD Gothic Neo', Georgia, serif;
   }
-  .badge-erosion {
-    @apply bg-[hsl(var(--diagnostic-erosion))] text-white;
+
+  /* 종이 질감 블록. 예전 .glass-card 를 대체한다 —
+     배경·그림자·블러 없이 가로선과 여백으로만 위계를 만든다 (D7). */
+  .glass-card,
+  .paper-block {
+    @apply bg-transparent border-0 shadow-none backdrop-blur-none;
+    border-top: 1px solid var(--rule);
+    padding-top: 1.5rem;
   }
-  .badge-gain {
-    @apply bg-[hsl(var(--diagnostic-gain))] text-white;
+
+  /* 섹션 구분선 하나. 카드 대신 이것만 쓴다 */
+  .rule-top {
+    border-top: 1px solid var(--rule);
   }
-  .badge-human {
-    @apply bg-[hsl(var(--diagnostic-human))] text-white;
-  }
-  .badge-assist {
-    @apply bg-[hsl(var(--diagnostic-assist))] text-white;
-  }
-  .text-erosion {
-    color: hsl(var(--diagnostic-erosion));
-  }
-  .text-gain {
-    color: hsl(var(--diagnostic-gain));
-  }
-  .text-human {
-    color: hsl(var(--diagnostic-human));
-  }
-  .text-assist {
-    color: hsl(var(--diagnostic-assist));
-  }
+
+  .text-erosion { color: hsl(var(--diagnostic-erosion)); }
+  .text-gain    { color: hsl(var(--diagnostic-gain)); }
+  .text-human   { color: hsl(var(--diagnostic-human)); }
+  .text-assist  { color: hsl(var(--diagnostic-assist)); }
 }
