@@ -35,3 +35,5 @@ supabase/.temp/
 .bkit/runtime/
 .bkit/audit/
 .bkit/state/
+.vercel
+.env*

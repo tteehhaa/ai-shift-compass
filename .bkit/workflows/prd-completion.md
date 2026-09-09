@@ -69,3 +69,19 @@ flow/ExitIntentSheet(E1) · /r/{id} SharedResult · /admin AdminDashboard
 삭제: MBTIGrid · RoutineInput · AnalysisAnimation · ResultDashboard · ShareCards ·
 CommunityRanking · AccuracyFeedback · EmailSignup · analysis-engine · algorithm-config ·
 types(v1) · normalize-activity · classify-activity
+
+## ACT (2026-09-09)
+
+| 대상 | 결과 |
+|---|---|
+| Supabase | 마이그레이션 6건 적용 (`kimusrivsubyghfhrwng`). 라이브 RPC 전 경로 확인 |
+| GitHub | `feat/prd-alignment` 푸시 (commit `3cf6727`) |
+| Vercel | https://ai-shift-compass.vercel.app 프로덕션 배포 |
+| 동적 OG | `/r/{id}` 가 유형 이름 + 되찾을 시간을 태그로 반환하는 것 실측 확인 |
+
+### 다음 사이클로 넘긴 것
+1. **궁합 메일 발송기** — ESP 키 확보 후 Edge Function 1개. 지금은 `pairing_emails` 에 queued 로만 쌓인다
+2. **유형별 OG 이미지 16종** — PRD D6 "유형 확정 후 착수". 유형은 이번에 확정됐으니 다음 차례
+3. **인터뷰 A3 + B3 (§9-4)** 과 **데이터 라이선스 확인 (§9-3)** — 코드 밖의 일
+4. **지인 10명 완주율·정확도 테스트 (§9-10)** — 배포됐으니 바로 가능
+5. eslint 미완주 — 이 머신의 메모리 압박. CI나 다른 머신에서 한 번 돌릴 것
